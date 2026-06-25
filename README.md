@@ -1,1 +1,0 @@
-# bazar-phbw-2026-final
