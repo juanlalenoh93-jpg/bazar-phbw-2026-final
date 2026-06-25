@@ -1,0 +1,850 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useRef, useState } from "react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, ChevronDown, CheckCircle2, Lock } from "lucide-react";
+import {
+  useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, bazarStats, saleOutstanding,
+  allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining,
+  type MenuItem, type Order, type Sale,
+} from "@/lib/storage";
+import { pushRows, orderRows, saleRows, expenseRows } from "@/lib/sync";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ConfirmDelete } from "./bazar.index";
+import { verifyPin } from "@/lib/pin";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/bazar/$id")({
+  component: BazarDetail,
+  notFoundComponent: () => <div className="p-6">Bazar tidak ditemukan.</div>,
+  loader: ({ params }) => ({ id: params.id }),
+});
+
+function BazarDetail() {
+  const { id } = Route.useParams();
+  const db = useDB();
+  const [tab, setTab] = useState("menu");
+  const bazar = db.bazars.find((b) => b.id === id);
+  if (!bazar) {
+    return (
+      <div className="space-y-4">
+        <Link to="/bazar" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+          <ArrowLeft className="h-4 w-4" /> Daftar Bazar
+        </Link>
+        <p className="text-muted-foreground">Bazar tidak ditemukan.</p>
+      </div>
+    );
+  }
+  const stats = bazarStats(db, id);
+  const menus = db.menus.filter((m) => m.bazarId === id);
+  const orders = db.orders
+    .filter((o) => o.bazarId === id && o.items.some((i) => i.qty > 0))
+    .sort((a, b) => Number(!!a.soldAt) - Number(!!b.soldAt) || a.customer.localeCompare(b.customer, "id"));
+  const sales = db.sales
+    .filter((s) => s.bazarId === id)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const expenses = db.expenses
+    .filter((e) => e.bazarId === id)
+    .sort((a, b) => a.name.localeCompare(b.name, "id"));
+
+  return (
+    <div className="space-y-5">
+      <Link to="/bazar" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Daftar Bazar
+      </Link>
+      <div>
+        <h2 className="text-2xl font-bold">{bazar.name}</h2>
+        <p className="text-sm text-muted-foreground">{fmtDate(new Date(bazar.date).getTime())}</p>
+      </div>
+
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+        <TabsList className="grid h-10 w-full grid-cols-4">
+          <TabsTrigger value="menu" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Menu</TabsTrigger>
+          <TabsTrigger value="pesanan" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Pesanan</TabsTrigger>
+          <TabsTrigger value="penjualan" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Penjualan</TabsTrigger>
+          <TabsTrigger value="pengeluaran" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Pengeluaran</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="menu">
+          <MenuTab bazarId={id} menus={menus} />
+          <div className="mt-5"><RekapBazar stats={stats} /></div>
+        </TabsContent>
+        <TabsContent value="pesanan"><PesananTab bazarId={id} menus={menus} orders={orders} /></TabsContent>
+        <TabsContent value="penjualan"><PenjualanTab sales={sales} bazarName={bazar.name} /></TabsContent>
+        <TabsContent value="pengeluaran"><PengeluaranTab bazarId={id} expenses={expenses} /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function RekapBazar({ stats }: { stats: ReturnType<typeof bazarStats> }) {
+  return (
+    <Collapsible defaultOpen={false} className="rounded-2xl border bg-card">
+      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-5 text-left">
+        <div>
+          <h3 className="text-lg font-semibold">Rekap Keuangan Bazar</h3>
+          <p className="text-xs text-muted-foreground">Klik untuk buka/tutup</p>
+        </div>
+        <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-5 pb-5">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <StatRow label="Total Penjualan" value={stats.totalSales} />
+          <StatRow label="Total Pengeluaran" value={stats.totalExpense} tone="bad" />
+          <StatRow label="Total Piutang (sisa)" value={stats.totalPiutang} tone="warn" />
+          <StatRow label="Keuntungan Bersih" value={stats.profit} tone="good" />
+          <StatRow label="Pemasukan Cash" value={stats.totalCash} />
+          <StatRow label="Pemasukan Transfer" value={stats.totalTransfer} />
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function StatRow({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {
+  const cls = tone === "good" ? "text-primary" : tone === "bad" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-foreground";
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={`font-semibold ${cls}`}>{fmtIDR(value)}</span>
+    </div>
+  );
+}
+
+/* ============ MENU TAB ============ */
+function MenuTab({ bazarId, menus }: { bazarId: string; menus: MenuItem[] }) {
+  const db = useDB();
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [qty, setQty] = useState("");
+
+  const reset = () => { setEditId(null); setName(""); setPrice(""); setQty(""); };
+  const openEdit = (m: MenuItem) => { setEditId(m.id); setName(m.name); setPrice(String(m.price)); setQty(String(m.qty)); setOpen(true); };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return toast.error("Nama menu wajib");
+    setDB((d) => {
+      if (editId) {
+        const m = d.menus.find((x) => x.id === editId);
+        if (m) { m.name = name.trim(); m.price = +price || 0; m.qty = +qty || 0; }
+      } else {
+        d.menus.push({ id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: +qty || 0 });
+      }
+    });
+    toast.success("Tersimpan");
+    setOpen(false); reset();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Menu</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editId ? "Edit" : "Tambah"} Menu</DialogTitle></DialogHeader>
+            <form onSubmit={submit} className="space-y-3">
+              <div><Label>Nama Menu</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Harga Jual</Label><Input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))} /></div>
+                <div><Label>Qty / Porsi Awal</Label><Input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/[^\d]/g, ""))} /></div>
+              </div>
+              <DialogFooter><Button type="submit" size="sm">Simpan</Button></DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {menus.length === 0 ? <Empty text="Belum ada menu untuk bazar ini." /> : (
+        <div className="grid gap-2">
+          {menus.map((m) => {
+            const sold = menuSoldQty(db, m.id);
+            const pending = menuPendingQty(db, m.id);
+            const remaining = menuRemaining(db, m.id);
+            const habis = m.qty > 0 && remaining === 0;
+            return (
+              <div key={m.id} className="flex items-center justify-between rounded-xl border bg-card p-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <span className="truncate">{m.name}</span>
+                    {habis && <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><CheckCircle2 className="h-3 w-3" /> Habis</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {fmtIDR(m.price)} · Terjual {sold} · Pending {pending} · <b className={remaining === 0 ? "text-destructive" : "text-emerald-700"}>Sisa {remaining}</b>/{m.qty}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
+                  <ConfirmDelete label={m.name} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ PESANAN TAB ============ */
+function PesananTab({ bazarId, menus, orders }: { bazarId: string; menus: MenuItem[]; orders: Order[] }) {
+  const db = useDB();
+  const customerNames = allCustomersGlobal(db);
+  const [open, setOpen] = useState(false);
+  const [customer, setCustomer] = useState("");
+  const [picks, setPicks] = useState<Record<string, string>>({});
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = customer.trim();
+    if (!trimmed) return toast.error("Nama customer wajib");
+    const items = Object.entries(picks)
+      .map(([menuId, q]) => ({ menuId, qty: +q || 0 }))
+      .filter((i) => i.qty > 0);
+    if (items.length === 0) return toast.error("Pilih minimal 1 menu");
+    // Validasi stok
+    for (const it of items) {
+      const rem = menuRemaining(db, it.menuId);
+      if (it.qty > rem) {
+        const m = menus.find((x) => x.id === it.menuId);
+        return toast.error(`Qty ${m?.name} tidak cukup, Sisa ${rem}`);
+      }
+    }
+    // Konfirmasi nama customer ganda
+    const dup = db.orders.some((o) =>
+      o.bazarId === bazarId && !o.soldAt && o.items.some((i) => i.qty > 0)
+      && o.customer.trim().toLowerCase() === trimmed.toLowerCase());
+    if (dup) {
+      const ok = window.confirm("Customer ini sudah melakukan pesanan, apakah anda yakin mau membuat pesanan baru?");
+      if (!ok) return;
+    }
+    const newOrder: Order = { id: uid(), bazarId, customer: trimmed, items, createdAt: Date.now() };
+    setDB((d) => { d.orders.unshift(newOrder); });
+    addCustomerToMaster(trimmed);
+    pushRows("Pesanan", orderRows(db, newOrder));
+    toast.success("Pesanan ditambahkan");
+    setOpen(false); setCustomer(""); setPicks({});
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" disabled={menus.length === 0} className="gap-1 text-xs">
+              <Plus className="h-3.5 w-3.5" /> Pesanan
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Tambah Pesanan</DialogTitle></DialogHeader>
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <Label>Nama Customer</Label>
+                <Input value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Ketik nama customer..." autoComplete="off" />
+                {customerNames.length > 0 && (
+                  <select className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value="" onChange={(e) => { if (e.target.value) setCustomer(e.target.value); }}>
+                    <option value="">— Pilih dari daftar master ({customerNames.length}) —</option>
+                    {customerNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Menu & Qty Pesan</Label>
+                {menus.map((m) => {
+                  const rem = menuRemaining(db, m.id);
+                  const v = +(picks[m.id] || 0);
+                  const over = v > rem;
+                  return (
+                    <div key={m.id} className={`rounded-lg border p-2 ${over ? "border-destructive bg-destructive/5" : ""}`}>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 text-sm min-w-0">
+                          <div className="font-medium truncate">{m.name}</div>
+                          <div className="text-xs text-muted-foreground">{fmtIDR(m.price)} · Sisa {rem}</div>
+                        </div>
+                        <Input className="w-20" inputMode="numeric" placeholder="0" value={picks[m.id] || ""}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^\d]/g, "");
+                            const num = Math.min(+raw || 0, rem);
+                            setPicks((p) => ({ ...p, [m.id]: num ? String(num) : "" }));
+                          }} />
+                      </div>
+                      {over && <p className="mt-1 text-xs font-medium text-destructive">Qty {m.name} tidak cukup, Sisa {rem}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+              <DialogFooter><Button type="submit">Simpan Pesanan</Button></DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {menus.length === 0 && <Empty text="Tambahkan menu terlebih dahulu di tab Menu." />}
+      {menus.length > 0 && orders.length === 0 && <Empty text="Belum ada pesanan." />}
+      <div className="grid gap-3">
+        {orders.map((o) => <OrderCard key={o.id} order={o} menus={menus} bazarId={bazarId} />)}
+      </div>
+    </div>
+  );
+}
+
+function OrderCard({ order, menus, bazarId }: { order: Order; menus: MenuItem[]; bazarId: string }) {
+  const menuName = (id: string) => menus.find((m) => m.id === id)?.name || "?";
+  const menuPrice = (id: string) => menus.find((m) => m.id === id)?.price || 0;
+  const sold = !!order.soldAt;
+
+  return (
+    <div className={`rounded-2xl border p-4 ${sold ? "border-emerald-200 bg-emerald-50/40" : "bg-card"}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold truncate">{order.customer}</div>
+          <div className="text-xs text-muted-foreground">{fmtDateTime(order.createdAt)}</div>
+        </div>
+        {sold ? <Badge className="gap-1 bg-emerald-600"><CheckCircle2 className="h-3 w-3" /> Terjual</Badge> : <Badge variant="secondary">Pesanan</Badge>}
+      </div>
+      <div className="mt-3 space-y-1 text-sm">
+        {order.items.filter((i) => i.qty > 0).map((i) => (
+          <div key={i.menuId} className="flex justify-between rounded-md bg-muted/50 px-2 py-1">
+            <span>{menuName(i.menuId)} × {i.qty}</span>
+            <span className="text-muted-foreground">{fmtIDR(menuPrice(i.menuId) * i.qty)}</span>
+          </div>
+        ))}
+      </div>
+      {order.note && <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">📝 {order.note}</div>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {sold ? (
+          <div className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"><Lock className="h-3 w-3" /> Terkunci</div>
+        ) : (
+          <>
+            <JualDialog order={order} menus={menus} bazarId={bazarId} />
+            <EditOrderDialog order={order} menus={menus} />
+            <GantiCustomerDialog order={order} menus={menus} />
+            <ConfirmDelete label="pesanan" onConfirm={() => { setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); }); toast.success("Pesanan dihapus"); }} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EditOrderDialog({ order, menus }: { order: Order; menus: MenuItem[] }) {
+  const db = useDB();
+  const [open, setOpen] = useState(false);
+  const [picks, setPicks] = useState<Record<string, string>>(() =>
+    Object.fromEntries(order.items.map((i) => [i.menuId, String(i.qty)])),
+  );
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const items = menus.map((m) => ({ menuId: m.id, qty: +(picks[m.id] || 0) || 0 })).filter((i) => i.qty > 0);
+    if (items.length === 0) return toast.error("Minimal 1 menu");
+    for (const it of items) {
+      const rem = menuRemaining(db, it.menuId, order.id);
+      if (it.qty > rem) {
+        const m = menus.find((x) => x.id === it.menuId);
+        return toast.error(`Qty ${m?.name} tidak cukup, Sisa ${rem}`);
+      }
+    }
+    setDB((d) => { const o = d.orders.find((x) => x.id === order.id); if (o) o.items = items; });
+    toast.success("Pesanan diperbarui");
+    setOpen(false);
+  };
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button size="sm" variant="outline" className="gap-1"><Pencil className="h-4 w-4" /> Edit</Button></DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Edit Pesanan — {order.customer}</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="space-y-2">
+            {menus.map((m) => {
+              const rem = menuRemaining(db, m.id, order.id);
+              const v = +(picks[m.id] || 0);
+              const over = v > rem;
+              return (
+                <div key={m.id} className={`rounded-lg border p-2 ${over ? "border-destructive bg-destructive/5" : ""}`}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 text-sm min-w-0">
+                      <div className="font-medium truncate">{m.name}</div>
+                      <div className="text-xs text-muted-foreground">{fmtIDR(m.price)} · Sisa {rem}</div>
+                    </div>
+                    <Input className="w-20" inputMode="numeric" placeholder="0" value={picks[m.id] || ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^\d]/g, "");
+                        const num = Math.min(+raw || 0, rem);
+                        setPicks((p) => ({ ...p, [m.id]: num ? String(num) : "" }));
+                      }} />
+                  </div>
+                  {over && <p className="mt-1 text-xs font-medium text-destructive">Qty {m.name} tidak cukup, Sisa {rem}</p>}
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter><Button type="submit">Simpan</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============ JUAL DIALOG (parsial dgn checklist) ============ */
+function JualDialog({ order, menus, bazarId }: { order: Order; menus: MenuItem[]; bazarId: string }) {
+  const db = useDB();
+  const [open, setOpen] = useState(false);
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [qtys, setQtys] = useState<Record<string, string>>({});
+  const [method, setMethod] = useState<"cash" | "transfer">("cash");
+  const [paid, setPaid] = useState("");
+  const [note, setNote] = useState("");
+  const [proof, setProof] = useState<string | undefined>();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const menuOf = (id: string) => menus.find((m) => m.id === id);
+
+  const selectedItems = useMemo(() =>
+    order.items.filter((i) => i.qty > 0 && checked[i.menuId])
+      .map((i) => ({ ...i, takeQty: Math.min(+(qtys[i.menuId] || i.qty) || 0, i.qty) }))
+      .filter((i) => i.takeQty > 0),
+  [order, checked, qtys]);
+
+  const total = useMemo(() =>
+    selectedItems.reduce((s, i) => s + i.takeQty * (menuOf(i.menuId)?.price || 0), 0),
+  [selectedItems, menus]);
+
+  const onFile = (f?: File) => {
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => setProof(r.result as string);
+    r.readAsDataURL(f);
+  };
+
+  const reset = () => { setChecked({}); setQtys({}); setMethod("cash"); setPaid(""); setNote(""); setProof(undefined); };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedItems.length === 0) return toast.error("Centang minimal 1 menu");
+    const paidNum = +paid || 0;
+    if (paidNum > total) return toast.error("Nominal bayar > total");
+    if (method === "transfer" && paidNum > 0 && !proof) return toast.error("Upload bukti transfer dahulu");
+
+    const saleItems = selectedItems.map((i) => {
+      const m = menuOf(i.menuId)!;
+      return { menuId: i.menuId, name: m.name, price: m.price, cost: m.cost || 0, qty: i.takeQty };
+    });
+
+    const newSale: Sale = {
+      id: uid(), bazarId, orderId: order.id, customer: order.customer,
+      items: saleItems, total, method, paid: paidNum, proof, createdAt: Date.now(),
+      note: note.trim() || undefined,
+    };
+
+    setDB((d) => {
+      const o = d.orders.find((x) => x.id === order.id);
+      if (o) {
+        // Kurangi qty sesuai item terjual; jika semua habis → soldAt
+        for (const it of selectedItems) {
+          const oi = o.items.find((x) => x.menuId === it.menuId);
+          if (oi) oi.qty = Math.max(0, oi.qty - it.takeQty);
+        }
+        const remaining = o.items.reduce((s, x) => s + x.qty, 0);
+        if (remaining === 0) { o.soldAt = Date.now(); o.saleId = newSale.id; }
+        if (note.trim()) o.note = note.trim();
+      }
+      d.sales.push(newSale);
+    });
+    addCustomerToMaster(order.customer);
+    pushRows("Penjualan", saleRows(db, newSale));
+    toast.success(paidNum >= total ? "Penjualan LUNAS tersimpan" : paidNum > 0 ? "Pembayaran sebagian tersimpan" : "Tercatat sebagai PIUTANG");
+    setOpen(false); reset();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+      <DialogTrigger asChild><Button size="sm" className="gap-1"><ShoppingCart className="h-4 w-4" /> Jual</Button></DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Konfirmasi Penjualan — {order.customer}</DialogTitle>
+          <DialogDescription>Centang menu yang diambil & atur Qty parsial. Sisa pesanan tetap aktif.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="space-y-2 rounded-lg border p-2">
+            {order.items.filter((i) => i.qty > 0).map((i) => {
+              const m = menuOf(i.menuId);
+              const isChecked = !!checked[i.menuId];
+              const cur = +(qtys[i.menuId] || (isChecked ? i.qty : 0));
+              return (
+                <div key={i.menuId} className="flex items-center gap-2">
+                  <Checkbox checked={isChecked} onCheckedChange={(v) => {
+                    setChecked((p) => ({ ...p, [i.menuId]: !!v }));
+                    if (v && !qtys[i.menuId]) setQtys((p) => ({ ...p, [i.menuId]: String(i.qty) }));
+                  }} />
+                  <div className="flex-1 text-sm min-w-0">
+                    <div className="font-medium truncate">{m?.name}</div>
+                    <div className="text-xs text-muted-foreground">{fmtIDR(m?.price || 0)} · Sisa pesanan {i.qty}</div>
+                  </div>
+                  <Input className="w-16" inputMode="numeric" disabled={!isChecked} value={qtys[i.menuId] || ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d]/g, "");
+                      const num = Math.min(+raw || 0, i.qty);
+                      setQtys((p) => ({ ...p, [i.menuId]: num ? String(num) : "" }));
+                    }} />
+                  <span className="w-20 text-right text-xs text-muted-foreground">{fmtIDR((m?.price || 0) * (isChecked ? cur : 0))}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm flex justify-between">
+            <span>Total Tagihan</span><b>{fmtIDR(total)}</b>
+          </div>
+
+          <div>
+            <Label>Metode Pembayaran</Label>
+            <RadioGroup value={method} onValueChange={(v) => setMethod(v as "cash" | "transfer")} className="mt-2 flex gap-4">
+              <label className="flex items-center gap-2"><RadioGroupItem value="cash" /> Cash</label>
+              <label className="flex items-center gap-2"><RadioGroupItem value="transfer" /> Transfer</label>
+            </RadioGroup>
+          </div>
+          <div>
+            <Label>Nominal Bayar (0 = Piutang)</Label>
+            <Input inputMode="numeric" value={paid} onChange={(e) => setPaid(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" />
+            <p className="mt-1 text-xs text-muted-foreground">Status: <b>{(+paid || 0) >= total && total > 0 ? "LUNAS" : "PIUTANG"}</b></p>
+          </div>
+          <div>
+            <Label>Keterangan (opsional)</Label>
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="cth: diambil oleh Si B" />
+          </div>
+          {method === "transfer" && (
+            <div>
+              <Label>Bukti Transfer</Label>
+              <div className="mt-1 flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                  <Upload className="h-4 w-4" /> {proof ? "Ganti" : "Upload / Kamera"}
+                </Button>
+                <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+                {proof && <img src={proof} alt="bukti" className="h-12 w-12 rounded border object-cover" />}
+              </div>
+            </div>
+          )}
+          <DialogFooter><Button type="submit" disabled={total === 0}>Simpan Penjualan</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============ GANTI / ALIHKAN (parsial) ============ */
+function GantiCustomerDialog({ order, menus }: { order: Order; menus: MenuItem[] }) {
+  const db = useDB();
+  const customerNames = allCustomersGlobal(db);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [qtys, setQtys] = useState<Record<string, string>>({});
+
+  const menuOf = (id: string) => menus.find((m) => m.id === id);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return toast.error("Nama customer baru wajib");
+    const moves = order.items.filter((i) => i.qty > 0 && checked[i.menuId])
+      .map((i) => ({ menuId: i.menuId, takeQty: Math.min(+(qtys[i.menuId] || i.qty) || 0, i.qty) }))
+      .filter((i) => i.takeQty > 0);
+    if (moves.length === 0) return toast.error("Pilih minimal 1 item");
+
+    setDB((d) => {
+      const o = d.orders.find((x) => x.id === order.id);
+      if (!o) return;
+      const allFull = moves.every((m) => {
+        const oi = o.items.find((x) => x.menuId === m.menuId);
+        return oi && oi.qty === m.takeQty;
+      }) && o.items.filter((i) => i.qty > 0).length === moves.length;
+
+      if (allFull) {
+        // Alihkan seluruh pesanan apa adanya
+        if (!o.originalCustomer) o.originalCustomer = o.customer;
+        o.customer = trimmed;
+      } else {
+        // Split: kurangi qty dari order asli, buat order baru utk customer baru
+        const newItems: { menuId: string; qty: number }[] = [];
+        for (const mv of moves) {
+          const oi = o.items.find((x) => x.menuId === mv.menuId);
+          if (oi) { oi.qty -= mv.takeQty; newItems.push({ menuId: mv.menuId, qty: mv.takeQty }); }
+        }
+        d.orders.unshift({
+          id: uid(), bazarId: o.bazarId, customer: trimmed, items: newItems,
+          createdAt: Date.now(), originalCustomer: o.customer,
+        });
+      }
+    });
+    addCustomerToMaster(trimmed);
+    toast.success("Pesanan dialihkan");
+    setOpen(false); setName(""); setChecked({}); setQtys({});
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button size="sm" variant="outline" className="gap-1"><UserCog className="h-4 w-4" /> Ganti</Button></DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Alihkan Pesanan</DialogTitle>
+          <DialogDescription>Pilih item & qty yang dialihkan. Jika tidak semua, sisanya tetap di customer lama.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <Label>Nama Customer Baru</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ketik nama..." autoComplete="off" />
+            {customerNames.length > 0 && (
+              <select className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value="" onChange={(e) => { if (e.target.value) setName(e.target.value); }}>
+                <option value="">— Pilih dari daftar master ({customerNames.length}) —</option>
+                {customerNames.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            )}
+          </div>
+          <div className="space-y-2 rounded-lg border p-2">
+            <Label className="text-xs">Item yang dialihkan</Label>
+            {order.items.filter((i) => i.qty > 0).map((i) => {
+              const m = menuOf(i.menuId);
+              const isChecked = !!checked[i.menuId];
+              return (
+                <div key={i.menuId} className="flex items-center gap-2">
+                  <Checkbox checked={isChecked} onCheckedChange={(v) => {
+                    setChecked((p) => ({ ...p, [i.menuId]: !!v }));
+                    if (v && !qtys[i.menuId]) setQtys((p) => ({ ...p, [i.menuId]: String(i.qty) }));
+                  }} />
+                  <div className="flex-1 text-sm min-w-0">
+                    <div className="font-medium truncate">{m?.name}</div>
+                    <div className="text-xs text-muted-foreground">Sisa pesanan {i.qty}</div>
+                  </div>
+                  <Input className="w-16" inputMode="numeric" disabled={!isChecked} value={qtys[i.menuId] || ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d]/g, "");
+                      const num = Math.min(+raw || 0, i.qty);
+                      setQtys((p) => ({ ...p, [i.menuId]: num ? String(num) : "" }));
+                    }} />
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter><Button type="submit">Alihkan</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============ PENJUALAN TAB ============ */
+function PenjualanTab({ sales, bazarName }: { sales: Sale[]; bazarName: string }) {
+  if (sales.length === 0) return <Empty text="Belum ada penjualan." />;
+  return (
+    <div className="grid gap-3">
+      {sales.map((s) => <SaleCard key={s.id} sale={s} bazarName={bazarName} />)}
+    </div>
+  );
+}
+
+function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
+  const db = useDB();
+  const outstanding = saleOutstanding(db, sale.id);
+  const status = outstanding > 0 ? "PIUTANG" : "LUNAS";
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pin, setPinInput] = useState("");
+
+  const doDelete = () => {
+    setDB((d) => {
+      // Rollback: kembalikan qty ke order asli (atau buat ulang), buka kunci
+      if (sale.orderId) {
+        let o = d.orders.find((x) => x.id === sale.orderId);
+        if (!o) {
+          o = { id: sale.orderId, bazarId: sale.bazarId, customer: sale.customer, items: [], createdAt: Date.now() };
+          d.orders.unshift(o);
+        }
+        for (const it of sale.items) {
+          const oi = o.items.find((x) => x.menuId === it.menuId);
+          if (oi) oi.qty += it.qty;
+          else o.items.push({ menuId: it.menuId, qty: it.qty });
+        }
+        // Buka kunci pesanan
+        delete o.soldAt;
+        delete o.saleId;
+      }
+      d.sales = d.sales.filter((x) => x.id !== sale.id);
+      d.payments = d.payments.filter((p) => p.saleId !== sale.id);
+    });
+    toast.success("Penjualan dihapus & qty pesanan dikembalikan (terbuka kembali)");
+    setPinOpen(false); setPinInput("");
+  };
+
+  const handleDeleteClick = () => { setPinOpen(true); };
+
+  const onPinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyPin(pin)) { toast.error("PIN salah"); return; }
+    doDelete();
+  };
+
+  const printNota = () => {
+    const w = window.open("", "_blank", "width=420,height=600");
+    if (!w) return;
+    const rows = sale.items.map((i) =>
+      `<tr><td>${i.name}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">${fmtIDR(i.price)}</td><td style="text-align:right">${fmtIDR(i.price * i.qty)}</td></tr>`
+    ).join("");
+    w.document.write(`<html><head><title>Nota - ${sale.customer}</title>
+      <style>body{font-family:system-ui;padding:16px;max-width:380px;margin:0 auto;color:#111}
+      h2{margin:0 0 4px;font-size:18px}.muted{color:#666;font-size:12px}
+      table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+      th,td{padding:6px 4px;border-bottom:1px dashed #ddd}
+      .tot{font-weight:700;border-top:2px solid #000}</style></head><body>
+      <h2>PHBW 2026 — ${bazarName}</h2>
+      <div class="muted">Kompelsus Pemuda Jemaat Bukit Zaitun Luwuk</div><hr/>
+      <div><b>Customer:</b> ${sale.customer}</div>
+      <div class="muted">${fmtDateTime(sale.createdAt)}</div>
+      <table><thead><tr><th align="left">Menu</th><th>Qty</th><th align="right">Harga</th><th align="right">Subtotal</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="tot"><td colspan="3" align="right">Total</td><td align="right">${fmtIDR(sale.total)}</td></tr>
+      <tr><td colspan="3" align="right">Bayar</td><td align="right">${fmtIDR(sale.paid)}</td></tr>
+      <tr><td colspan="3" align="right">Status</td><td align="right">${status}</td></tr></tfoot></table>
+      <p class="muted" style="text-align:center;margin-top:18px">Terima kasih — Tuhan Memberkati 🙏</p>
+      <script>window.print()</script></body></html>`);
+    w.document.close();
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="font-semibold">{sale.customer}</div>
+          <div className="text-xs text-muted-foreground">{fmtDateTime(sale.createdAt)}</div>
+        </div>
+        <Badge className={status === "LUNAS" ? "bg-primary" : "bg-warning text-warning-foreground"}>{status}</Badge>
+      </div>
+      <div className="mt-3 space-y-1 text-sm">
+        {sale.items.map((i, idx) => (
+          <div key={idx} className="flex justify-between rounded-md bg-muted/50 px-2 py-1">
+            <span>{i.name} × {i.qty}</span>
+            <span>{fmtIDR(i.price * i.qty)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 text-sm">
+        Total: <b>{fmtIDR(sale.total)}</b> · Bayar: <b>{fmtIDR(sale.paid)}</b>
+        {outstanding > 0 && <> · Sisa: <b className="text-warning">{fmtIDR(outstanding)}</b></>}
+      </div>
+      {sale.note && <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">📝 {sale.note}</div>}
+      {sale.proof && (
+        <a href={sale.proof} target="_blank" rel="noreferrer" className="mt-2 inline-block">
+          <img src={sale.proof} alt="bukti" className="h-16 rounded border" />
+        </a>
+      )}
+      <div className="mt-3 flex gap-2">
+        <Button size="sm" variant="outline" onClick={printNota}><Printer className="h-4 w-4" /> Nota</Button>
+        <Button size="sm" variant="destructive" onClick={handleDeleteClick}><Lock className="h-4 w-4" /> Hapus</Button>
+      </div>
+
+      <Dialog open={pinOpen} onOpenChange={setPinOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi PIN</DialogTitle>
+            <DialogDescription>Masukkan PIN aktif untuk menghapus penjualan ini. Qty akan dikembalikan ke pesanan.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onPinSubmit} className="space-y-3">
+            <Input type="password" autoFocus placeholder="PIN" value={pin} onChange={(e) => setPinInput(e.target.value)} />
+            <DialogFooter><Button type="submit" variant="destructive">Hapus</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ============ PENGELUARAN TAB ============ */
+function PengeluaranTab({ bazarId, expenses }: { bazarId: string; expenses: ReturnType<typeof useDB>["expenses"] }) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [qty, setQty] = useState("");
+  const [amount, setAmount] = useState("");
+
+  const reset = () => { setEditId(null); setName(""); setQty(""); setAmount(""); };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return toast.error("Nama wajib");
+    const isEdit = !!editId;
+    const newExpense = { id: editId || uid(), bazarId, name: name.trim(), qty: +qty || 1, amount: +amount || 0, createdAt: Date.now() };
+    setDB((d) => {
+      if (editId) {
+        const x = d.expenses.find((y) => y.id === editId);
+        if (x) { x.name = newExpense.name; x.qty = newExpense.qty; x.amount = newExpense.amount; }
+      } else { d.expenses.push(newExpense); }
+    });
+    if (!isEdit) pushRows("Pengeluaran", expenseRows(newExpense));
+    toast.success("Tersimpan");
+    setOpen(false); reset();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Pengeluaran</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editId ? "Edit" : "Tambah"} Pengeluaran</DialogTitle></DialogHeader>
+            <form onSubmit={submit} className="space-y-3">
+              <div><Label>Nama Pengeluaran</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Qty</Label><Input inputMode="numeric" placeholder="1" value={qty} onChange={(e) => setQty(e.target.value.replace(/[^\d]/g, ""))} /></div>
+                <div><Label>Nominal</Label><Input inputMode="numeric" placeholder="Total" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))} /></div>
+              </div>
+              <DialogFooter><Button type="submit" size="sm">Simpan</Button></DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {expenses.length === 0 ? <Empty text="Belum ada pengeluaran." /> : (
+        <div className="grid gap-2">
+          {expenses.map((e) => (
+            <div key={e.id} className="flex items-center justify-between rounded-xl border bg-card p-3">
+              <div>
+                <div className="font-medium">{e.name}</div>
+                <div className="text-xs text-muted-foreground">{fmtDate(e.createdAt)} · Qty {e.qty || 1}</div>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-destructive">{fmtIDR(e.amount)}</span>
+                <Button size="icon" variant="ghost" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <ConfirmDelete label={e.name} onConfirm={() => { setDB((d) => { d.expenses = d.expenses.filter((x) => x.id !== e.id); }); }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border-2 border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+      <Receipt className="mx-auto mb-2 h-6 w-6" />
+      {text}
+    </div>
+  );
+}
