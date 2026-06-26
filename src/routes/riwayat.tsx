@@ -13,17 +13,31 @@ function RiwayatPage() {
   const db = useDB();
   const list = [...db.payments].sort((a, b) => b.date - a.date);
   const bazarName = (id: string) => db.bazars.find((b) => b.id === id)?.name || "?";
+  const paymentBreakdown = (p: typeof list[number]) => {
+    const sale = db.sales.find((s) => s.id === p.saleId);
+    if (!sale) return { totalBefore: p.amount, paid: p.amount, remainingAfter: 0 };
+    const previousPayments = db.payments
+      .filter((x) => x.saleId === p.saleId && x.date < p.date)
+      .reduce((sum, x) => sum + x.amount, 0);
+    const totalBefore = Math.max(0, sale.total - sale.paid - previousPayments);
+    return {
+      totalBefore,
+      paid: p.amount,
+      remainingAfter: Math.max(0, totalBefore - p.amount),
+    };
+  };
 
   const printNota = (p: typeof list[number]) => {
     const w = window.open("", "_blank", "width=420,height=600");
     if (!w) return;
+    const breakdown = paymentBreakdown(p);
     w.document.write(`
       <html><head><title>Nota Pembayaran Piutang - ${p.customer}</title>
       <style>body{font-family:system-ui;padding:16px;max-width:380px;margin:0 auto;color:#111}
       h2{margin:0 0 4px;font-size:18px}.muted{color:#666;font-size:12px}
       .box{margin-top:12px;padding:10px;border:1px dashed #999;border-radius:8px}
-      .row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
-      .tot{font-weight:700;font-size:16px;border-top:2px solid #000;padding-top:6px;margin-top:6px}</style></head><body>
+      .row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;gap:12px}
+      .paid{font-weight:800;font-size:20px;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 0;margin:6px 0}</style></head><body>
       <h2>NOTA PEMBAYARAN PIUTANG</h2>
       <div class="muted">PHBW 2026 — ${ORGANIZATION_NAME}</div>
       <hr/>
@@ -35,13 +49,16 @@ function RiwayatPage() {
         <div class="muted">Untuk pembelian:</div>
         <div>${p.menuName}</div>
       </div>
-      <div class="row tot"><span>Dibayar</span><span>${fmtIDR(p.amount)}</span></div>
+      <div class="row"><span>Total Piutang</span><b>${fmtIDR(breakdown.totalBefore)}</b></div>
+      <div class="row paid"><span>Jumlah Bayar Piutang</span><span>${fmtIDR(breakdown.paid)}</span></div>
+      <div class="row"><span>Sisa Piutang</span><b>${fmtIDR(breakdown.remainingAfter)}</b></div>
       <p class="muted" style="text-align:center;margin-top:18px">Terima kasih atas pembayarannya 🙏<br/>Tuhan Memberkati.</p>
       <script>window.print()</script></body></html>`);
     w.document.close();
   };
 
   const shareWA = (p: typeof list[number]) => {
+    const breakdown = paymentBreakdown(p);
     const text =
       `*NOTA PEMBAYARAN PIUTANG*\n` +
       `${ORGANIZATION_NAME}\n\n` +
@@ -50,7 +67,9 @@ function RiwayatPage() {
       `Tanggal: ${fmtDateTime(p.date)}\n` +
       `Jenis Metode Pembayaran: ${p.method === "cash" ? "Cash" : "Transfer"}\n` +
       `Untuk: ${p.menuName}\n\n` +
-      `Dibayar: *${fmtIDR(p.amount)}*\n\n` +
+      `Total Piutang: ${fmtIDR(breakdown.totalBefore)}\n` +
+      `Jumlah Bayar Piutang: *${fmtIDR(breakdown.paid)}*\n` +
+      `Sisa Piutang: ${fmtIDR(breakdown.remainingAfter)}\n\n` +
       `Terima kasih 🙏 Tuhan Memberkati.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -85,6 +104,7 @@ function RiwayatPage() {
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-primary">{fmtIDR(p.amount)}</div>
+                  <div className="text-[10px] text-muted-foreground">Sisa {fmtIDR(paymentBreakdown(p).remainingAfter)}</div>
                   <Badge variant="outline" className="mt-1 uppercase">{p.method}</Badge>
                 </div>
               </div>

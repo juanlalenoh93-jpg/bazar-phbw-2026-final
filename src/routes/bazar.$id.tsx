@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Lock, Church } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Lock, Church, Search } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining, useLogo,
   type MenuItem, type Order, type Sale,
 } from "@/lib/storage";
-import { WORKSPACE_ORG_LABEL, ORGANIZATION_NAME } from "@/lib/branding";
+import { ORGANIZATION_NAME, useWorkspaceHeader } from "@/lib/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ConfirmDelete } from "./bazar.index";
+import { ConfirmDelete, PinConfirmDelete } from "./bazar.index";
 import { verifyPin } from "@/lib/pin";
 import { toast } from "sonner";
 
@@ -31,6 +31,7 @@ function BazarDetail() {
   const { id } = Route.useParams();
   const db = useDB();
   const logo = useLogo();
+  const workspaceHeader = useWorkspaceHeader();
   const [tab, setTab] = useState("menu");
   const bazar = db.bazars.find((b) => b.id === id);
   if (!bazar) {
@@ -68,7 +69,7 @@ function BazarDetail() {
           <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full border bg-primary/10 text-primary">
             {logo ? <img src={logo} alt="Logo Wilayah IV" className="h-full w-full object-cover" /> : <Church className="h-4 w-4" />}
           </div>
-          <span className="text-sm font-semibold text-foreground">{WORKSPACE_ORG_LABEL}</span>
+          <span className="text-sm font-semibold text-foreground">{workspaceHeader}</span>
         </div>
       </div>
 
@@ -160,7 +161,7 @@ function MenuTab({ bazarId, menus }: { bazarId: string; menus: MenuItem[] }) {
                 </div>
                 <div className="flex gap-1">
                   <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
-                  <ConfirmDelete label={m.name} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
+                  <PinConfirmDelete label={m.name} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
                 </div>
               </div>
             );
@@ -178,6 +179,10 @@ function PesananTab({ bazarId, menus, orders }: { bazarId: string; menus: MenuIt
   const [open, setOpen] = useState(false);
   const [customer, setCustomer] = useState("");
   const [picks, setPicks] = useState<Record<string, string>>({});
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const filteredOrders = orders.filter((o) =>
+    o.customer.toLowerCase().includes(searchCustomer.trim().toLowerCase()),
+  );
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,10 +269,23 @@ function PesananTab({ bazarId, menus, orders }: { bazarId: string; menus: MenuIt
         </Dialog>
       </div>
 
+      {menus.length > 0 && orders.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchCustomer}
+            onChange={(e) => setSearchCustomer(e.target.value)}
+            placeholder="Cari nama customer..."
+            className="pl-9"
+          />
+        </div>
+      )}
+
       {menus.length === 0 && <Empty text="Tambahkan menu terlebih dahulu di tab Menu." />}
       {menus.length > 0 && orders.length === 0 && <Empty text="Belum ada pesanan." />}
+      {menus.length > 0 && orders.length > 0 && filteredOrders.length === 0 && <Empty text="Tidak ada pesanan dengan nama customer itu." />}
       <div className="grid gap-3">
-        {orders.map((o) => <OrderCard key={o.id} order={o} menus={menus} bazarId={bazarId} />)}
+        {filteredOrders.map((o) => <OrderCard key={o.id} order={o} menus={menus} bazarId={bazarId} />)}
       </div>
     </div>
   );
@@ -617,10 +635,30 @@ function GantiCustomerDialog({ order, menus }: { order: Order; menus: MenuItem[]
 
 /* ============ PENJUALAN TAB ============ */
 function PenjualanTab({ sales, bazarName }: { sales: Sale[]; bazarName: string }) {
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const filteredSales = sales.filter((s) =>
+    s.customer.toLowerCase().includes(searchCustomer.trim().toLowerCase()),
+  );
+
   if (sales.length === 0) return <Empty text="Belum ada penjualan." />;
   return (
-    <div className="grid gap-3">
-      {sales.map((s) => <SaleCard key={s.id} sale={s} bazarName={bazarName} />)}
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={searchCustomer}
+          onChange={(e) => setSearchCustomer(e.target.value)}
+          placeholder="Cari nama customer..."
+          className="pl-9"
+        />
+      </div>
+      {filteredSales.length === 0 ? (
+        <Empty text="Tidak ada penjualan dengan nama customer itu." />
+      ) : (
+        <div className="grid gap-3">
+          {filteredSales.map((s) => <SaleCard key={s.id} sale={s} bazarName={bazarName} />)}
+        </div>
+      )}
     </div>
   );
 }
@@ -657,11 +695,25 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
     setPinOpen(false); setPinInput("");
   };
 
-  const handleDeleteClick = () => { setPinOpen(true); };
+  const hasPiutangPayments = db.payments.some((p) => p.saleId === sale.id);
+
+  const handleDeleteClick = () => {
+    if (hasPiutangPayments) {
+      toast.error("Penjualan ini sudah memiliki pembayaran piutang. Hapus pembayaran piutang terkait terlebih dahulu.");
+      return;
+    }
+    setPinOpen(true);
+  };
 
   const onPinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!verifyPin(pin)) { toast.error("PIN salah"); return; }
+    if (db.payments.some((p) => p.saleId === sale.id)) {
+      toast.error("Penjualan ini sudah memiliki pembayaran piutang. Hapus pembayaran piutang terkait terlebih dahulu.");
+      setPinOpen(false);
+      setPinInput("");
+      return;
+    }
     doDelete();
   };
 
@@ -728,7 +780,7 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Konfirmasi PIN</DialogTitle>
-            <DialogDescription>Masukkan PIN aktif untuk menghapus penjualan ini. Qty akan dikembalikan ke pesanan.</DialogDescription>
+            <DialogDescription>Masukkan PIN aktif untuk menghapus penjualan ini. Qty akan dikembalikan ke pesanan. Jika sudah ada pembayaran piutang, pembayaran terkait harus dihapus terlebih dahulu.</DialogDescription>
           </DialogHeader>
           <form onSubmit={onPinSubmit} className="space-y-3">
             <Input type="password" autoFocus placeholder="PIN" value={pin} onChange={(e) => setPinInput(e.target.value)} />
@@ -747,6 +799,10 @@ function PengeluaranTab({ bazarId, expenses }: { bazarId: string; expenses: Retu
   const [name, setName] = useState("");
   const [qty, setQty] = useState("");
   const [amount, setAmount] = useState("");
+  const [searchName, setSearchName] = useState("");
+  const filteredExpenses = expenses.filter((e) =>
+    e.name.toLowerCase().includes(searchName.trim().toLowerCase()),
+  );
 
   const reset = () => { setEditId(null); setName(""); setQty(""); setAmount(""); };
 
@@ -786,9 +842,21 @@ function PengeluaranTab({ bazarId, expenses }: { bazarId: string; expenses: Retu
         </Dialog>
       </div>
 
-      {expenses.length === 0 ? <Empty text="Belum ada pengeluaran." /> : (
+      {expenses.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            placeholder="Cari nama belanjaan..."
+            className="pl-9"
+          />
+        </div>
+      )}
+
+      {expenses.length === 0 ? <Empty text="Belum ada pengeluaran." /> : filteredExpenses.length === 0 ? <Empty text="Tidak ada pengeluaran dengan nama belanjaan itu." /> : (
         <div className="grid gap-2">
-          {expenses.map((e) => (
+          {filteredExpenses.map((e) => (
             <div key={e.id} className="flex items-center justify-between rounded-xl border bg-card p-3">
               <div>
                 <div className="font-medium">{e.name}</div>

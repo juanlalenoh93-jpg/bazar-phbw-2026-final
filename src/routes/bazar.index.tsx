@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { verifyPin } from "@/lib/pin";
 
 export const Route = createFileRoute("/bazar/")({
   component: BazarList,
@@ -140,7 +141,7 @@ function BazarList() {
                     <Button size="icon" variant="ghost" onClick={() => openEdit(b.id)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <ConfirmDelete onConfirm={() => remove(b.id)} label={b.name} />
+                    <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} />
                   </div>
                 </div>
               </div>
@@ -199,6 +200,48 @@ export function ConfirmDelete({ onConfirm, label }: { onConfirm: () => void; lab
         <AlertDialogFooter>
           <AlertDialogCancel>Batal</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>Hapus</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+export function PinConfirmDelete({ onConfirm, label }: { onConfirm: () => void; label: string }) {
+  const [pin, setPin] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const confirm = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!verifyPin(pin)) {
+      toast.error("PIN salah");
+      return;
+    }
+    onConfirm();
+    setOpen(false);
+    setPin("");
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setPin(""); }}>
+      <AlertDialogTrigger asChild>
+        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Hapus {label}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Masukkan PIN aktif untuk menghapus data ini. Tindakan ini tidak dapat dibatalkan.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="space-y-2">
+          <Label>PIN</Label>
+          <Input type="password" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Masukkan PIN" />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogAction onClick={confirm}>Hapus</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
