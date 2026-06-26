@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings } from "lucide-react";
+import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, LogOut } from "lucide-react";
 import { SheetSyncSettings } from "@/components/SheetSyncSettings";
 import { useState } from "react";
 import { useDB, computeSaldo, fmtIDR } from "@/lib/storage";
+import { exportAll, useSheetUrl } from "@/lib/sync";
+import { signOut, useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,9 +37,23 @@ function greeting(name: string): string {
 function Dashboard() {
   const db = useDB();
   const saldo = computeSaldo(db);
-  const displayName = "Panitia";
+  const sheetUrl = useSheetUrl();
+  const { displayName } = useAuth();
   // Default selalu tersembunyi tiap refresh
   const [hideSaldo, setHideSaldo] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!sheetUrl) {
+      toast.error("Tempel URL Google Sheets terlebih dahulu");
+      return;
+    }
+    setExporting(true);
+    const ok = await exportAll(db);
+    setExporting(false);
+    if (ok) toast.success("Seluruh data dikirim ke Google Sheets");
+    else toast.error("Gagal mengirim — cek URL Apps Script");
+  };
 
   return (
     <div className="space-y-4">
@@ -45,6 +61,7 @@ function Dashboard() {
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">{greeting(displayName)}</p>
         <div className="flex items-center gap-1">
+          <Button size="icon" variant="ghost" aria-label="Keluar" onClick={() => signOut()}><LogOut className="h-4 w-4" /></Button>
           <PinSettings />
         </div>
       </div>
@@ -89,9 +106,20 @@ function Dashboard() {
       </div>
 
       <div className="rounded-2xl border bg-card p-4">
-        <div className="mb-2 text-sm font-semibold">Pengaturan Panitia</div>
-        <p className="mb-3 text-xs text-muted-foreground">Sinkronisasi otomatis ke Google Sheets.</p>
-        <SheetSyncSettings fullWidth />
+        <div className="mb-2 text-sm font-semibold">Sinkron Google Sheets</div>
+        <p className="mb-3 text-xs text-muted-foreground">Atur URL Apps Script, lalu ekspor seluruh data aplikasi ke Google Sheets dari halaman utama ini.</p>
+        <div className="space-y-2">
+          <SheetSyncSettings fullWidth />
+          <Button
+            type="button"
+            className="w-full gap-2"
+            onClick={handleExport}
+            disabled={exporting || !sheetUrl}
+          >
+            <RefreshCw className={`h-4 w-4 ${exporting ? "animate-spin" : ""}`} />
+            {exporting ? "Mengirim..." : "🔄 Ekspor Semua Data ke Google Sheets"}
+          </Button>
+        </div>
       </div>
     </div>
   );

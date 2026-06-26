@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, History, Printer, Share2 } from "lucide-react";
 import { useDB, fmtIDR, fmtDateTime } from "@/lib/storage";
+import { ORGANIZATION_NAME } from "@/lib/branding";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -24,12 +25,12 @@ function RiwayatPage() {
       .row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
       .tot{font-weight:700;font-size:16px;border-top:2px solid #000;padding-top:6px;margin-top:6px}</style></head><body>
       <h2>NOTA PEMBAYARAN PIUTANG</h2>
-      <div class="muted">PHBW 2026 — Kompelsus Pemuda Jemaat Bukit Zaitun Luwuk</div>
+      <div class="muted">PHBW 2026 — ${ORGANIZATION_NAME}</div>
       <hr/>
       <div class="row"><span>Customer</span><b>${p.customer}</b></div>
       <div class="row"><span>Bazar</span><span>${bazarName(p.bazarId)}</span></div>
       <div class="row"><span>Tanggal</span><span>${fmtDateTime(p.date)}</span></div>
-      <div class="row"><span>Metode</span><span style="text-transform:uppercase">${p.method}</span></div>
+      <div class="row"><span>Jenis Metode Pembayaran</span><span>${p.method === "cash" ? "Cash" : "Transfer"}</span></div>
       <div class="box">
         <div class="muted">Untuk pembelian:</div>
         <div>${p.menuName}</div>
@@ -43,11 +44,11 @@ function RiwayatPage() {
   const shareWA = (p: typeof list[number]) => {
     const text =
       `*NOTA PEMBAYARAN PIUTANG*\n` +
-      `PHBW 2026 — Pemuda Bukit Zaitun Luwuk\n\n` +
+      `${ORGANIZATION_NAME}\n\n` +
       `Customer: *${p.customer}*\n` +
       `Bazar: ${bazarName(p.bazarId)}\n` +
       `Tanggal: ${fmtDateTime(p.date)}\n` +
-      `Metode: ${p.method.toUpperCase()}\n` +
+      `Jenis Metode Pembayaran: ${p.method === "cash" ? "Cash" : "Transfer"}\n` +
       `Untuk: ${p.menuName}\n\n` +
       `Dibayar: *${fmtIDR(p.amount)}*\n\n` +
       `Terima kasih 🙏 Tuhan Memberkati.`;

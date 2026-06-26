@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, ChevronDown, CheckCircle2, Lock } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Lock, Church } from "lucide-react";
 import {
-  useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, bazarStats, saleOutstanding,
-  allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining,
+  useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
+  allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining, useLogo,
   type MenuItem, type Order, type Sale,
 } from "@/lib/storage";
-import { pushRows, orderRows, saleRows, expenseRows } from "@/lib/sync";
+import { WORKSPACE_ORG_LABEL, ORGANIZATION_NAME } from "@/lib/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,6 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ConfirmDelete } from "./bazar.index";
 import { verifyPin } from "@/lib/pin";
 import { toast } from "sonner";
@@ -31,6 +30,7 @@ export const Route = createFileRoute("/bazar/$id")({
 function BazarDetail() {
   const { id } = Route.useParams();
   const db = useDB();
+  const logo = useLogo();
   const [tab, setTab] = useState("menu");
   const bazar = db.bazars.find((b) => b.id === id);
   if (!bazar) {
@@ -43,7 +43,6 @@ function BazarDetail() {
       </div>
     );
   }
-  const stats = bazarStats(db, id);
   const menus = db.menus.filter((m) => m.bazarId === id);
   const orders = db.orders
     .filter((o) => o.bazarId === id && o.items.some((i) => i.qty > 0))
@@ -60,9 +59,17 @@ function BazarDetail() {
       <Link to="/bazar" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Daftar Bazar
       </Link>
-      <div>
-        <h2 className="text-2xl font-bold">{bazar.name}</h2>
-        <p className="text-sm text-muted-foreground">{fmtDate(new Date(bazar.date).getTime())}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-2xl font-bold">{bazar.name}</h2>
+          <p className="text-sm text-muted-foreground">{fmtDate(new Date(bazar.date).getTime())}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 rounded-full border bg-card px-2.5 py-1.5 shadow-sm">
+          <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full border bg-primary/10 text-primary">
+            {logo ? <img src={logo} alt="Logo Wilayah IV" className="h-full w-full object-cover" /> : <Church className="h-4 w-4" />}
+          </div>
+          <span className="text-sm font-semibold text-foreground">{WORKSPACE_ORG_LABEL}</span>
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
@@ -75,46 +82,11 @@ function BazarDetail() {
 
         <TabsContent value="menu">
           <MenuTab bazarId={id} menus={menus} />
-          <div className="mt-5"><RekapBazar stats={stats} /></div>
         </TabsContent>
         <TabsContent value="pesanan"><PesananTab bazarId={id} menus={menus} orders={orders} /></TabsContent>
         <TabsContent value="penjualan"><PenjualanTab sales={sales} bazarName={bazar.name} /></TabsContent>
         <TabsContent value="pengeluaran"><PengeluaranTab bazarId={id} expenses={expenses} /></TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function RekapBazar({ stats }: { stats: ReturnType<typeof bazarStats> }) {
-  return (
-    <Collapsible defaultOpen={false} className="rounded-2xl border bg-card">
-      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-5 text-left">
-        <div>
-          <h3 className="text-lg font-semibold">Rekap Keuangan Bazar</h3>
-          <p className="text-xs text-muted-foreground">Klik untuk buka/tutup</p>
-        </div>
-        <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-      </CollapsibleTrigger>
-      <CollapsibleContent className="px-5 pb-5">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <StatRow label="Total Penjualan" value={stats.totalSales} />
-          <StatRow label="Total Pengeluaran" value={stats.totalExpense} tone="bad" />
-          <StatRow label="Total Piutang (sisa)" value={stats.totalPiutang} tone="warn" />
-          <StatRow label="Keuntungan Bersih" value={stats.profit} tone="good" />
-          <StatRow label="Pemasukan Cash" value={stats.totalCash} />
-          <StatRow label="Pemasukan Transfer" value={stats.totalTransfer} />
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-function StatRow({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {
-  const cls = tone === "good" ? "text-primary" : tone === "bad" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-foreground";
-  return (
-    <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`font-semibold ${cls}`}>{fmtIDR(value)}</span>
     </div>
   );
 }
@@ -134,12 +106,13 @@ function MenuTab({ bazarId, menus }: { bazarId: string; menus: MenuItem[] }) {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Nama menu wajib");
+    const newMenu: MenuItem = { id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: +qty || 0 };
     setDB((d) => {
       if (editId) {
         const m = d.menus.find((x) => x.id === editId);
         if (m) { m.name = name.trim(); m.price = +price || 0; m.qty = +qty || 0; }
       } else {
-        d.menus.push({ id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: +qty || 0 });
+        d.menus.push(newMenu);
       }
     });
     toast.success("Tersimpan");
@@ -233,7 +206,6 @@ function PesananTab({ bazarId, menus, orders }: { bazarId: string; menus: MenuIt
     const newOrder: Order = { id: uid(), bazarId, customer: trimmed, items, createdAt: Date.now() };
     setDB((d) => { d.orders.unshift(newOrder); });
     addCustomerToMaster(trimmed);
-    pushRows("Pesanan", orderRows(db, newOrder));
     toast.success("Pesanan ditambahkan");
     setOpen(false); setCustomer(""); setPicks({});
   };
@@ -256,7 +228,7 @@ function PesananTab({ bazarId, menus, orders }: { bazarId: string; menus: MenuIt
                 {customerNames.length > 0 && (
                   <select className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value="" onChange={(e) => { if (e.target.value) setCustomer(e.target.value); }}>
-                    <option value="">— Pilih dari daftar master ({customerNames.length}) —</option>
+                    <option value="">Pilih Customer</option>
                     {customerNames.map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 )}
@@ -323,7 +295,6 @@ function OrderCard({ order, menus, bazarId }: { order: Order; menus: MenuItem[];
           </div>
         ))}
       </div>
-      {order.note && <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">📝 {order.note}</div>}
       <div className="mt-3 flex flex-wrap gap-2">
         {sold ? (
           <div className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"><Lock className="h-3 w-3" /> Terkunci</div>
@@ -446,7 +417,7 @@ function JualDialog({ order, menus, bazarId }: { order: Order; menus: MenuItem[]
     const newSale: Sale = {
       id: uid(), bazarId, orderId: order.id, customer: order.customer,
       items: saleItems, total, method, paid: paidNum, proof, createdAt: Date.now(),
-      note: note.trim() || undefined,
+      note: note.trim() || order.note || undefined,
     };
 
     setDB((d) => {
@@ -459,12 +430,10 @@ function JualDialog({ order, menus, bazarId }: { order: Order; menus: MenuItem[]
         }
         const remaining = o.items.reduce((s, x) => s + x.qty, 0);
         if (remaining === 0) { o.soldAt = Date.now(); o.saleId = newSale.id; }
-        if (note.trim()) o.note = note.trim();
       }
       d.sales.push(newSale);
     });
     addCustomerToMaster(order.customer);
-    pushRows("Penjualan", saleRows(db, newSale));
     toast.success(paidNum >= total ? "Penjualan LUNAS tersimpan" : paidNum > 0 ? "Pembayaran sebagian tersimpan" : "Tercatat sebagai PIUTANG");
     setOpen(false); reset();
   };
@@ -609,7 +578,7 @@ function GantiCustomerDialog({ order, menus }: { order: Order; menus: MenuItem[]
             {customerNames.length > 0 && (
               <select className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value="" onChange={(e) => { if (e.target.value) setName(e.target.value); }}>
-                <option value="">— Pilih dari daftar master ({customerNames.length}) —</option>
+                <option value="">Pilih Customer</option>
                 {customerNames.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             )}
@@ -709,8 +678,9 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
       th,td{padding:6px 4px;border-bottom:1px dashed #ddd}
       .tot{font-weight:700;border-top:2px solid #000}</style></head><body>
       <h2>PHBW 2026 — ${bazarName}</h2>
-      <div class="muted">Kompelsus Pemuda Jemaat Bukit Zaitun Luwuk</div><hr/>
+      <div class="muted">${ORGANIZATION_NAME}</div><hr/>
       <div><b>Customer:</b> ${sale.customer}</div>
+      <div><b>Jenis Metode Pembayaran:</b> ${sale.method === "cash" ? "Cash" : "Transfer"}</div>
       <div class="muted">${fmtDateTime(sale.createdAt)}</div>
       <table><thead><tr><th align="left">Menu</th><th>Qty</th><th align="right">Harga</th><th align="right">Subtotal</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -740,7 +710,7 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
         ))}
       </div>
       <div className="mt-2 text-sm">
-        Total: <b>{fmtIDR(sale.total)}</b> · Bayar: <b>{fmtIDR(sale.paid)}</b>
+        Total: <b>{fmtIDR(sale.total)}</b> · Bayar: <b>{fmtIDR(sale.paid)}</b> · Metode: <b>{sale.method === "cash" ? "Cash" : "Transfer"}</b>
         {outstanding > 0 && <> · Sisa: <b className="text-warning">{fmtIDR(outstanding)}</b></>}
       </div>
       {sale.note && <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">📝 {sale.note}</div>}
@@ -791,7 +761,6 @@ function PengeluaranTab({ bazarId, expenses }: { bazarId: string; expenses: Retu
         if (x) { x.name = newExpense.name; x.qty = newExpense.qty; x.amount = newExpense.amount; }
       } else { d.expenses.push(newExpense); }
     });
-    if (!isEdit) pushRows("Pengeluaran", expenseRows(newExpense));
     toast.success("Tersimpan");
     setOpen(false); reset();
   };

@@ -171,6 +171,45 @@ export function useLogo(): string | null {
   );
 }
 
+// ------- Right logo (header) persisted separately -------
+const RIGHT_LOGO_KEY = "phbw-2026-right-logo-v1";
+let rightLogo: string | null = null;
+let rightLogoLoaded = false;
+const rightLogoListeners = new Set<() => void>();
+
+function loadRightLogo(): string | null {
+  if (typeof window === "undefined") return null;
+  if (rightLogoLoaded) return rightLogo;
+  try {
+    rightLogo = localStorage.getItem(RIGHT_LOGO_KEY);
+  } catch {
+    rightLogo = null;
+  }
+  rightLogoLoaded = true;
+  return rightLogo;
+}
+
+export function setRightLogo(value: string | null) {
+  rightLogo = value;
+  rightLogoLoaded = true;
+  if (typeof window !== "undefined") {
+    if (value) localStorage.setItem(RIGHT_LOGO_KEY, value);
+    else localStorage.removeItem(RIGHT_LOGO_KEY);
+  }
+  rightLogoListeners.forEach((l) => l());
+}
+
+export function useRightLogo(): string | null {
+  return useSyncExternalStore(
+    (cb) => {
+      rightLogoListeners.add(cb);
+      return () => rightLogoListeners.delete(cb);
+    },
+    () => loadRightLogo(),
+    () => null,
+  );
+}
+
 export function useDB(): DB {
   return useSyncExternalStore(
     (cb) => {

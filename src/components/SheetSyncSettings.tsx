@@ -56,8 +56,8 @@ export function SheetSyncSettings({
         <DialogHeader>
           <DialogTitle>Sinkron ke Google Sheets</DialogTitle>
           <DialogDescription>
-            Tempel URL Deployment Google Apps Script (Web App). Setiap Pesanan,
-            Penjualan, dan Pengeluaran baru akan otomatis terkirim.
+            Tempel URL Deployment Google Apps Script (Web App). Data tidak dikirim otomatis;
+            Google Sheets diperbarui hanya saat tombol Ekspor Semua Data ditekan.
           </DialogDescription>
         </DialogHeader>
         <form

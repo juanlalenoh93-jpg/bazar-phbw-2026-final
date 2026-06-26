@@ -1,40 +1,96 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Session, User } from "@supabase/supabase-js";
+import { useSyncExternalStore } from "react";
+
+export type AppUser = {
+  name: string;
+  email: string;
+  picture?: string;
+};
 
 export type AuthState = {
   loading: boolean;
-  session: Session | null;
-  user: User | null;
+  session: { user: AppUser } | null;
+  user: AppUser | null;
   displayName: string;
 };
 
-export function useAuth(): AuthState {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+const AUTH_KEY = "phbw-2026-google-user-v1";
+let user: AppUser | null = null;
+let loaded = false;
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  const user = session?.user || null;
-  const meta = (user?.user_metadata || {}) as Record<string, unknown>;
-  const displayName =
-    (meta.full_name as string) ||
-    (meta.name as string) ||
-    (user?.email ? user.email.split("@")[0] : "") ||
-    "Panitia";
-
-  return { loading, session, user, displayName };
+function notify() {
+  listeners.forEach((listener) => listener());
 }
 
-export async function signOut() {
-  await supabase.auth.signOut();
+function loadUser(): AppUser | null {
+  if (typeof window === "undefined") return null;
+  if (loaded) return user;
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    user = raw ? JSON.parse(raw) : null;
+  } catch {
+    user = null;
+  }
+  loaded = true;
+  return user;
+}
+
+export function getAuthUser(): AppUser | null {
+  return loadUser();
+}
+
+export function setAuthUser(nextUser: AppUser | null) {
+  user = nextUser;
+  loaded = true;
+  if (typeof window !== "undefined") {
+    if (nextUser) localStorage.setItem(AUTH_KEY, JSON.stringify(nextUser));
+    else localStorage.removeItem(AUTH_KEY);
+  }
+  notify();
+}
+
+export function useAuth(): AuthState {
+  const currentUser = useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    () => loadUser(),
+    () => null,
+  );
+
+  return {
+    loading: false,
+    session: currentUser ? { user: currentUser } : null,
+    user: currentUser,
+    displayName: currentUser?.name || "Panitia",
+  };
+}
+
+export function signOut() {
+  setAuthUser(null);
+}
+
+function decodeBase64Url(value: string): string {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+  return decodeURIComponent(
+    Array.from(atob(padded))
+      .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`)
+      .join(""),
+  );
+}
+
+export function userFromGoogleCredential(credential: string): AppUser {
+  const payload = JSON.parse(decodeBase64Url(credential.split(".")[1] || "")) as {
+    name?: string;
+    email?: string;
+    picture?: string;
+  };
+  if (!payload.email) throw new Error("Credential Google tidak memiliki email");
+  return {
+    name: payload.name || payload.email.split("@")[0] || "Panitia",
+    email: payload.email,
+    picture: payload.picture,
+  };
 }

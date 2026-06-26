@@ -56,10 +56,6 @@ function BazarList() {
         d.bazars.unshift(newBazar);
       }
     });
-    if (!editId) {
-      // 1 baris ke sheet "nomor bazar"
-      import("@/lib/sync").then(({ pushRows, bazarRows }) => pushRows("nomor bazar", bazarRows(newBazar)));
-    }
     toast.success(editId ? "Bazar diperbarui" : "Bazar ditambahkan");
     setOpen(false);
   };
@@ -127,11 +123,17 @@ function BazarList() {
                   <Link to="/bazar/$id" params={{ id: b.id }} className="min-w-0 flex-1">
                     <div className="font-semibold text-foreground">{b.name}</div>
                     <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                      <span className="text-muted-foreground">Penjualan: <b className="text-foreground">{fmtIDR(s.totalSales)}</b></span>
-                      <span className="text-muted-foreground">Pengeluaran: <b className="text-destructive">{fmtIDR(s.totalExpense)}</b></span>
-                      <span className="text-muted-foreground">Piutang: <b className="text-warning">{fmtIDR(s.totalPiutang)}</b></span>
-                      <span className="text-muted-foreground">Untung: <b className="text-primary">{fmtIDR(s.profit)}</b></span>
+                    <div className="mt-3 rounded-xl bg-muted/40 p-3 text-xs">
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                        <FinanceLine label="Penjualan" value={s.totalSales} />
+                        <FinanceLine label="Pengeluaran" value={s.totalExpense} tone="bad" />
+                        <FinanceLine label="Piutang" value={s.totalPiutang} tone="warn" />
+                        <FinanceLine label="Keuntungan" value={s.profit} tone="good" />
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 border-t pt-2 sm:grid-cols-2">
+                        <FinanceLine label="Cash" value={s.totalCash} />
+                        <FinanceLine label="Transfer" value={s.totalTransfer} />
+                      </div>
                     </div>
                   </Link>
                   <div className="flex shrink-0 gap-1">
@@ -146,6 +148,25 @@ function BazarList() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function FinanceLine({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "good" | "bad" | "warn";
+}) {
+  const cls = tone === "good" ? "text-primary" : tone === "bad" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-foreground";
+  return (
+    <div className="grid grid-cols-[88px_8px_1fr] items-center gap-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground">:</span>
+      <b className={`text-right ${cls}`}>{fmtIDR(value)}</b>
     </div>
   );
 }

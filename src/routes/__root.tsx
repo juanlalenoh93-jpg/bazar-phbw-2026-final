@@ -5,12 +5,15 @@ import {
   HeadContent,
   Scripts,
   useRouterState,
+  Navigate,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { AppHeader } from "@/components/AppHeader";
 import { Toaster } from "@/components/ui/sonner";
+import { useAuth } from "@/lib/auth";
+import { ORGANIZATION_NAME } from "@/lib/branding";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -21,7 +24,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Aplikasi manajemen keuangan bazar Panitia Hari Besar Wilayah 2026, Kompelsus Pemuda Jemaat Bukit Zaitun Luwuk.",
+          `Aplikasi manajemen keuangan bazar Panitia Hari Besar Wilayah 2026, ${ORGANIZATION_NAME}.`,
       },
       { property: "og:title", content: "PHBW 2026" },
       { name: "twitter:title", content: "PHBW 2026" },
@@ -64,11 +67,15 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const showHeader = pathname === "/";
+  const { user } = useAuth();
+  const isAuthPage = pathname === "/auth";
+  const showHeader = pathname === "/" && !!user;
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
+        {!user && !isAuthPage && <Navigate to="/auth" replace />}
+        {user && isAuthPage && <Navigate to="/" replace />}
         {showHeader && <AppHeader />}
         <main className="mx-auto max-w-5xl px-4 py-6">
           <Outlet />

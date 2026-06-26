@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { DB, Order, Sale, Expense, Bazar } from "./storage";
+import type { DB, Order, Sale, Expense, Bazar, PiutangPayment } from "./storage";
 
 const URL_KEY = "phbw-2026-sheet-url-v1";
 
@@ -7,7 +7,7 @@ const URL_KEY = "phbw-2026-sheet-url-v1";
 const DEFAULT_URL =
   "https://script.google.com/macros/s/AKfycbw5Qo_FBHtIgE9uOBYY7JjC9XqeMhPa7la0qvGGz4gSwdBVOkP9DuXoXHMWaJYf45icyw/exec";
 
-let url: string = "";
+let url = "";
 let loaded = false;
 const listeners = new Set<() => void>();
 
@@ -23,7 +23,9 @@ function load(): string {
   return url;
 }
 
-export function getSheetUrl(): string { return load(); }
+export function getSheetUrl(): string {
+  return load();
+}
 
 export function setSheetUrl(value: string) {
   url = value.trim() || DEFAULT_URL;
@@ -32,108 +34,187 @@ export function setSheetUrl(value: string) {
     if (value.trim()) localStorage.setItem(URL_KEY, value.trim());
     else localStorage.removeItem(URL_KEY);
   }
-  listeners.forEach((l) => l());
+  listeners.forEach((listener) => listener());
 }
 
 export function useSheetUrl(): string {
   return useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
+    (callback) => {
+      listeners.add(callback);
+      return () => listeners.delete(callback);
+    },
     () => load(),
     () => DEFAULT_URL,
   );
 }
 
-// ============= Row Builders (1 menu = 1 baris) =============
+// ============= Row Builders (1 menu/item = 1 baris) =============
 type Row = (string | number)[];
 
 function bazarName(db: DB, bazarId: string): string {
-  return db.bazars.find((b) => b.id === bazarId)?.name || bazarId;
-}
-function menuName(db: DB, menuId: string): string {
-  return db.menus.find((m) => m.id === menuId)?.name || menuId;
-}
-function menuPrice(db: DB, menuId: string): number {
-  return db.menus.find((m) => m.id === menuId)?.price || 0;
+  return db.bazars.find((b) => b.id === bazarId)?.name || bazarId || "";
 }
 
-export function orderRows(db: DB, o: Order): Row[] {
-  const bz = bazarName(db, o.bazarId);
-  const terjual = o.soldAt ? "Yes" : "No";
-  const dialihkan = o.originalCustomer && o.originalCustomer !== o.customer
-    ? `${o.originalCustomer} → ${o.customer}` : "";
-  const ket = o.note || "";
-  return o.items.filter((i) => i.qty > 0).map((i) => {
-    const nm = menuName(db, i.menuId);
-    const pr = menuPrice(db, i.menuId);
-    return [o.id, bz, o.customer, nm, i.qty, pr * i.qty, terjual, dialihkan, ket];
+function menuName(db: DB, menuId: string): string {
+  return db.menus.find((menu) => menu.id === menuId)?.name || menuId || "";
+}
+
+function menuPrice(db: DB, menuId: string): number {
+  return db.menus.find((menu) => menu.id === menuId)?.price || 0;
+}
+
+function paymentMethodLabel(method?: string): string {
+  if (!method) return "";
+  return method.toLowerCase() === "transfer" ? "Transfer" : "Cash";
+}
+
+function paymentStatus(total: number, paid: number): string {
+  return paid >= total && total > 0 ? "Lunas" : "Piutang";
+}
+
+function allocateAmount(totalAmount: number, subtotals: number[]): number[] {
+  if (subtotals.length === 0) return [];
+  const total = subtotals.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) return subtotals.map(() => 0);
+
+  let allocated = 0;
+  return subtotals.map((subtotal, index) => {
+    if (index === subtotals.length - 1) return Math.max(0, totalAmount - allocated);
+    const value = Math.round((totalAmount * subtotal) / total);
+    allocated += value;
+    return value;
   });
 }
 
-export function saleRows(db: DB, s: Sale): Row[] {
-  const bz = bazarName(db, s.bazarId);
-  const paidTotal = s.paid + db.payments.filter((p) => p.saleId === s.id).reduce((a, p) => a + p.amount, 0);
-  const status = paidTotal >= s.total ? "LUNAS" : "PIUTANG";
-  return s.items.map((i) => [
-    s.id, bz, s.customer, i.name, i.qty, i.price * i.qty, paidTotal, s.method, status,
+export function bazarRows(bazar: Bazar): Row[] {
+  return [[bazar.id, bazar.name, bazar.date]];
+}
+
+export function orderRows(db: DB, order: Order): Row[] {
+  const bazar = bazarName(db, order.bazarId);
+  const isFullySold = !!order.soldAt;
+  const shifted =
+    order.originalCustomer && order.originalCustomer !== order.customer
+      ? `${order.originalCustomer} → ${order.customer}`
+      : "";
+
+  return order.items
+    .filter((item) => item.qty > 0)
+    .map((item) => {
+      const price = menuPrice(db, item.menuId);
+      return [
+        order.id,
+        bazar,
+        order.customer,
+        menuName(db, item.menuId),
+        item.qty,
+        price * item.qty,
+        isFullySold ? "Ya" : "Tidak",
+        shifted,
+        order.note || "",
+      ];
+    });
+}
+
+export function saleRows(db: DB, sale: Sale): Row[] {
+  const bazar = bazarName(db, sale.bazarId);
+  const piutangPayments = db.payments
+    .filter((payment) => payment.saleId === sale.id)
+    .reduce((sum, payment) => sum + payment.amount, 0);
+  const paidTotal = sale.paid + piutangPayments;
+  const status = paymentStatus(sale.total, paidTotal);
+  const subtotals = sale.items.map((item) => item.price * item.qty);
+  const paidByItem = allocateAmount(paidTotal, subtotals);
+
+  return sale.items.map((item, index) => [
+    sale.id,
+    bazar,
+    sale.customer,
+    item.name,
+    item.qty,
+    subtotals[index],
+    paidByItem[index],
+    paymentMethodLabel(sale.method),
+    status,
   ]);
 }
 
-export function bazarRows(b: Bazar): Row[] { return [[b.id, b.name, b.date]]; }
-export function expenseRows(e: Expense): Row[] { return [[e.id, e.bazarId, e.name, e.qty || 1, e.amount]]; }
-
-// ============= Push =============
-function send(body: string): void {
-  const u = load();
-  if (!u) return;
-  try {
-    fetch(u, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body,
-      keepalive: true,
-    }).catch(() => {});
-  } catch { /* ignore */ }
+export function expenseRows(db: DB, expense: Expense): Row[] {
+  return [[
+    expense.id,
+    bazarName(db, expense.bazarId),
+    expense.name,
+    expense.qty || 1,
+    expense.amount,
+  ]];
 }
 
-export function pushRows(sheet: string, rows: Row[]): void {
-  if (!rows.length) return;
-  send(JSON.stringify({ type: "append", sheet, rows, sentAt: new Date().toISOString() }));
+export function paymentRows(db: DB, payment: PiutangPayment): Row[] {
+  const sale = db.sales.find((item) => item.id === payment.saleId);
+  const paidTotal = sale
+    ? sale.paid + db.payments.filter((p) => p.saleId === sale.id).reduce((sum, p) => sum + p.amount, 0)
+    : payment.amount;
+
+  return [[
+    payment.id,
+    bazarName(db, payment.bazarId),
+    payment.customer,
+    payment.amount,
+    paymentMethodLabel(payment.method),
+    sale ? paymentStatus(sale.total, paidTotal) : "Pembayaran Piutang",
+    payment.menuName || "",
+    new Date(payment.date).toISOString(),
+  ]];
+}
+
+// Auto-sync sengaja dimatikan sesuai keputusan final user:
+// semua tambah/edit/hapus hanya tersimpan lokal dulu, lalu Google Sheets diperbarui
+// saat tombol "Ekspor Semua Data ke Google Sheets" ditekan.
+export function pushRows(_sheet: string, _rows: Row[]): void {
+  // no-op by design
 }
 
 export type SyncEventType = "order" | "sale" | "expense" | "bulk_export" | "bazar";
-export function pushToSheet(_t: SyncEventType, _p: unknown): void { /* deprecated */ }
+export function pushToSheet(_type: SyncEventType, _payload: unknown): void {
+  // deprecated no-op
+}
 
-// ============= Bulk export (sesuai permintaan user) =============
-// Mengirim 2 format sekaligus agar Apps Script bisa pilih: 
-//   1) payload: { bazars, orders, sales, expenses } — array mentah per sheet
-//   2) sheets: { bazar, pesanan, penjualan, pengeluaran } — sudah jadi baris (1 menu = 1 baris)
+// ============= Bulk export final =============
+// Hanya menulis 5 sheet final:
+// Bazar, Pesanan, Penjualan, Pengeluaran, Pembayaran Piutang.
+// Menu tetap dikirim di payload sebagai data bantu agar Apps Script/backup dapat membaca nama dan harga menu,
+// tetapi tidak dibuat sebagai sheet terpisah.
 export async function exportAll(db: DB): Promise<boolean> {
-  const u = load();
-  if (!u) return false;
+  const targetUrl = load();
+  if (!targetUrl) return false;
+
   const sheets: Record<string, Row[]> = {
-    "Bazar": db.bazars.flatMap(bazarRows),
-    "Pesanan": db.orders.flatMap((o) => orderRows(db, o)),
-    "Penjualan": db.sales.flatMap((s) => saleRows(db, s)),
-    "Pengeluaran": db.expenses.flatMap(expenseRows),
+    Bazar: db.bazars.flatMap((bazar) => bazarRows(bazar)),
+    Pesanan: db.orders.flatMap((order) => orderRows(db, order)),
+    Penjualan: db.sales.flatMap((sale) => saleRows(db, sale)),
+    Pengeluaran: db.expenses.flatMap((expense) => expenseRows(db, expense)),
+    "Pembayaran Piutang": db.payments.flatMap((payment) => paymentRows(db, payment)),
   };
+
   try {
-    await fetch(u, {
+    await fetch(targetUrl, {
       method: "POST",
       mode: "no-cors",
+      redirect: "follow",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
         type: "bulk_export",
         payload: {
           bazars: db.bazars,
+          menus: db.menus,
           orders: db.orders,
           sales: db.sales,
           expenses: db.expenses,
+          payments: db.payments,
         },
         sheets,
         sentAt: new Date().toISOString(),
       }),
-      keepalive: true,
     });
     return true;
   } catch {

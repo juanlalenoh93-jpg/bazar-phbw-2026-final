@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { ArrowLeft, Upload } from "lucide-react";
-import { useDB, setDB, uid, fmtIDR, fmtDateTime, saleOutstanding, salePaidTotal } from "@/lib/storage";
+import { useDB, setDB, uid, fmtIDR, fmtDateTime, saleOutstanding, salePaidTotal, type PiutangPayment } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,11 +105,12 @@ function BayarDialog({
     if (n <= 0) return toast.error("Nominal harus > 0");
     if (n > max) return toast.error(`Maksimum cicilan ${fmtIDR(max)}`);
     if (method === "transfer" && !proof) return toast.error("Upload bukti transfer");
+    const newPayment: PiutangPayment = {
+      id: uid(), saleId, bazarId, customer, menuName: menuSummary,
+      amount: n, method, proof, date: Date.now(),
+    };
     setDB((d) => {
-      d.payments.unshift({
-        id: uid(), saleId, bazarId, customer, menuName: menuSummary,
-        amount: n, method, proof, date: Date.now(),
-      });
+      d.payments.unshift(newPayment);
     });
     toast.success("Pembayaran tercatat");
     setOpen(false); setAmount(""); setProof(undefined); setMethod("cash");
