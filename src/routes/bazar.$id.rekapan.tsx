@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, MessageCircle, Pencil, Printer } from "lucide-react";
+import { ArrowLeft, MessageCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDB, fmtIDR, fmtDate, saleOutstanding } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/bazar/$id/rekapan")({
 const REKAP_TEMPLATE_KEY = "phbw-2026-rekap-template-v1";
 
 const DEFAULT_TEMPLATE =
-  `Shallom..
+`Shallom..
 Berikut kami sampaikan Rekapan {BAZAR_NAME} PHBW 2026 ({BAZAR_DATE}):
 
 PENGELUARAN
@@ -54,25 +54,21 @@ function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
 
   const totalPengeluaran = bazarExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-  // PESANAN – aggregate original qty per menu name
   const pesananCustomers = new Set<string>();
   const pesananMenuMap = new Map<string, number>();
 
   for (const order of bazarOrders) {
     pesananCustomers.add(order.customer.trim().toLowerCase());
-
     const soldByMenu: Record<string, number> = {};
     for (const sale of db.sales.filter((s) => s.orderId === order.id)) {
       for (const item of sale.items) {
         soldByMenu[item.menuId] = (soldByMenu[item.menuId] || 0) + item.qty;
       }
     }
-
     const allMenuIds = new Set([
       ...order.items.map((i) => i.menuId),
       ...Object.keys(soldByMenu),
     ]);
-
     for (const menuId of allMenuIds) {
       const remaining = order.items.find((i) => i.menuId === menuId)?.qty || 0;
       const sold = soldByMenu[menuId] || 0;
@@ -88,7 +84,6 @@ function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
     .filter((o) => o.originalCustomer && o.originalCustomer !== o.customer)
     .map((o) => `${o.originalCustomer} → ${o.customer}`);
 
-  // PENJUALAN – aggregate qty & subtotal per menu name
   const penjualanCustomers = new Set<string>();
   const penjualanMenuMap = new Map<string, { qty: number; total: number }>();
 
@@ -127,15 +122,20 @@ function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
   };
 }
 
-function buildMessage(template: string, data: ReturnType<typeof computeRekap>, bazarName: string, bazarDate: string) {
+function buildMessage(
+  template: string,
+  data: ReturnType<typeof computeRekap>,
+  bazarName: string,
+  bazarDate: string,
+) {
   const listPesanan = data.pesananMenus.length
     ? data.pesananMenus.map(([name, qty], i) => `${alphaLabel(i)}. ${name} - ${qty}x`).join("\n")
     : "Belum ada pesanan";
 
   const listPenjualan = data.penjualanMenus.length
-    ? data.penjualanMenus.map(([name, { qty, total }], i) =>
-        `${alphaLabel(i)}. ${name} - ${qty}x - ${fmtIDR(total)}`,
-      ).join("\n")
+    ? data.penjualanMenus
+        .map(([name, { qty, total }], i) => `${alphaLabel(i)}. ${name} - ${qty}x - ${fmtIDR(total)}`)
+        .join("\n")
     : "Belum ada penjualan";
 
   const dialihkanText = data.dialihkan.length
@@ -194,28 +194,11 @@ function RekapanPage() {
   const resetTemplate = () => {
     setTemplate(DEFAULT_TEMPLATE);
     localStorage.removeItem(REKAP_TEMPLATE_KEY);
-    toast.success("Template direset");
+    toast.success("Template direset ke default");
   };
 
   const sendWA = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-  };
-
-  const printRekap = () => {
-    const w = window.open("", "_blank", "width=480,height=700");
-    if (!w) return;
-    w.document.write(`
-      <html><head><title>Rekapan Bazar - ${bazar.name}</title>
-      <style>
-        body{font-family:system-ui;padding:20px;max-width:440px;margin:0 auto;color:#111;font-size:13px}
-        h2{margin:0 0 4px;font-size:16px}
-        .muted{color:#666;font-size:11px}
-        pre{white-space:pre-wrap;font-family:system-ui;font-size:13px;line-height:1.6;margin:0}
-      </style></head><body>
-      <pre>${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
-      <script>window.print()</script></body></html>
-    `);
-    w.document.close();
   };
 
   return (
@@ -235,32 +218,25 @@ function RekapanPage() {
         </p>
       </div>
 
-      <Button
+      <button
+        type="button"
         onClick={sendWA}
-        className="h-auto w-full justify-start gap-3 rounded-2xl bg-emerald-600 py-4 text-left text-white hover:bg-emerald-700"
+        className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 active:scale-[0.98]"
       >
-        <MessageCircle className="h-6 w-6 shrink-0" />
-        <div className="flex-1">
-          <div className="text-base font-semibold">Kirim Rekapan ke WA</div>
-          <div className="text-xs opacity-90">{bazar.name} · {bazarDate}</div>
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20">
+          <MessageCircle className="h-6 w-6" />
         </div>
-      </Button>
-
-      <Button
-        onClick={printRekap}
-        variant="outline"
-        className="h-auto w-full justify-start gap-3 rounded-2xl py-4 text-left"
-      >
-        <Printer className="h-6 w-6 shrink-0" />
-        <div className="flex-1">
-          <div className="text-base font-semibold">Cetak Rekapan</div>
-          <div className="text-xs text-muted-foreground">Buka tampilan cetak browser</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-base font-semibold">Kirim Rekapan Bazar ke WA</div>
+          <div className="text-xs text-emerald-100/90">
+            {bazar.name} · {bazarDate}
+          </div>
         </div>
-      </Button>
+      </button>
 
       <div className="rounded-2xl border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-semibold">Format Pesan Rekapan</div>
+          <div className="text-sm font-semibold">Format Pesan WA</div>
           <Button
             size="sm"
             variant="ghost"
@@ -272,31 +248,34 @@ function RekapanPage() {
         </div>
 
         {editingTpl ? (
-          <>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Token yang tersedia:{" "}
-              {[
-                "{BAZAR_NAME}", "{BAZAR_DATE}", "{TOTAL_PENGELUARAN}",
-                "{JUMLAH_CUSTOMER_PESANAN}", "{LIST_MENU_PESANAN}", "{DIALIHKAN}",
-                "{JUMLAH_CUSTOMER_PENJUALAN}", "{LIST_MENU_PENJUALAN}",
-                "{TOTAL_PENJUALAN}", "{TOTAL_LUNAS}", "{TOTAL_PIUTANG}", "{KEUNTUNGAN}",
-              ].map((t) => (
-                <code key={t} className="mr-1 rounded bg-muted px-1">{t}</code>
-              ))}
+          <div className="space-y-2">
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Token: <code className="rounded bg-muted px-1">{"{BAZAR_NAME}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{BAZAR_DATE}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{TOTAL_PENGELUARAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{JUMLAH_CUSTOMER_PESANAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{LIST_MENU_PESANAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{DIALIHKAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{JUMLAH_CUSTOMER_PENJUALAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{LIST_MENU_PENJUALAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{TOTAL_PENJUALAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{TOTAL_LUNAS}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{TOTAL_PIUTANG}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{KEUNTUNGAN}"}</code>
             </p>
             <Textarea
-              rows={18}
+              rows={16}
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
               className="font-mono text-xs"
             />
-            <div className="mt-2 flex gap-2">
+            <div className="flex gap-2">
               <Button size="sm" onClick={saveTemplate}>Simpan</Button>
               <Button size="sm" variant="outline" onClick={resetTemplate}>Reset Default</Button>
             </div>
-          </>
+          </div>
         ) : (
-          <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
+          <pre className="whitespace-pre-wrap rounded-xl bg-muted/50 p-4 text-xs leading-relaxed text-foreground/80">
             {message}
           </pre>
         )}

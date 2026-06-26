@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, ClipboardList, Filter } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining, useLogo,
@@ -141,15 +141,6 @@ function BazarDetail() {
         </Tabs>
       </div>
 
-      <div className="flex justify-center">
-        <Link
-          to="/bazar/$id/rekapan"
-          params={{ id }}
-          className="inline-flex items-center gap-2 rounded-xl border bg-card px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary hover:text-primary"
-        >
-          <ClipboardList className="h-4 w-4" /> Rekapan Bazar
-        </Link>
-      </div>
     </div>
   );
 }
@@ -374,13 +365,13 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
               className="pl-9"
             />
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
             {filterButtons.map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setStatusFilter(key)}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
                   statusFilter === key
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-card text-muted-foreground hover:bg-muted"
