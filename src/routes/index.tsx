@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, LogOut, Camera, X, Trash2, Users } from "lucide-react";
+import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, Camera, X, Trash2, Users, ChevronRight, LogOut } from "lucide-react";
 import { SheetSyncSettings } from "@/components/SheetSyncSettings";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDB, computeSaldo, fmtIDR, useLogo, useRightLogo, setLogo, setRightLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding } from "@/lib/storage";
 import { exportAll, useSheetUrl } from "@/lib/sync";
 import { signOut, useAuth } from "@/lib/auth";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { getPin, setPin, verifyPin } from "@/lib/pin";
 import { toast } from "sonner";
+import { PinConfirmDelete } from "./bazar.index";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
 
@@ -60,7 +61,6 @@ function Dashboard() {
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">{greeting(displayName)}</p>
         <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" aria-label="Keluar" onClick={() => signOut()}><LogOut className="h-4 w-4" /></Button>
           <AppSettings />
         </div>
       </div>
@@ -124,11 +124,30 @@ function Dashboard() {
   );
 }
 
+type SettingsAction =
+  | "pin"
+  | "left-logo"
+  | "right-logo"
+  | "main-header"
+  | "workspace-header"
+  | "customers";
+
+const settingsLabels: Record<SettingsAction, string> = {
+  "pin": "Ganti PIN",
+  "left-logo": "Ganti Logo Kiri",
+  "right-logo": "Ganti Logo Kanan",
+  "main-header": "Ubah Header Utama",
+  "workspace-header": "Ubah Header Dalam Bazar",
+  "customers": "Kelola Customer Terdaftar",
+};
+
 function AppSettings() {
   const db = useDB();
   const customers = allCustomersGlobal(db);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<SettingsAction | null>(null);
   const [pin, setPinInput] = useState("");
+  const [verified, setVerified] = useState(false);
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const currentMainHeader = useMainHeader();
@@ -140,6 +159,14 @@ function AppSettings() {
   const leftFileRef = useRef<HTMLInputElement>(null);
   const rightFileRef = useRef<HTMLInputElement>(null);
 
+  const resetAction = () => {
+    setActive(null);
+    setPinInput("");
+    setVerified(false);
+    setNext("");
+    setConfirm("");
+  };
+
   useEffect(() => {
     if (open) {
       setMainHeaderText(currentMainHeader);
@@ -147,35 +174,46 @@ function AppSettings() {
     }
   }, [open, currentMainHeader, currentWorkspaceHeader]);
 
-  const requirePin = () => {
+  const openAction = (action: SettingsAction) => {
+    setActive(action);
+    setPinInput("");
+    setVerified(false);
+    setNext("");
+    setConfirm("");
+  };
+
+  const submitPin = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!verifyPin(pin)) {
       toast.error("PIN salah");
-      return false;
+      return;
     }
-    return true;
+    setVerified(true);
+    setPinInput("");
   };
 
   const savePin = () => {
-    if (!requirePin()) return;
     if (next.length < 4) return toast.error("PIN baru minimal 4 karakter");
     if (next !== confirm) return toast.error("Konfirmasi PIN tidak cocok");
     setPin(next);
-    setNext("");
-    setConfirm("");
-    setPinInput("");
     toast.success("PIN berhasil diubah");
+    resetAction();
   };
 
-  const saveHeaders = () => {
-    if (!requirePin()) return;
+  const saveMainHeader = () => {
     setMainHeader(mainHeaderText || APP_TITLE);
+    toast.success("Header utama berhasil disimpan");
+    resetAction();
+  };
+
+  const saveWorkspaceHeader = () => {
     setWorkspaceHeader(workspaceHeaderText || WORKSPACE_ORG_LABEL);
-    toast.success("Header berhasil disimpan");
+    toast.success("Header dalam bazar berhasil disimpan");
+    resetAction();
   };
 
   const handleLogoFile = (side: "left" | "right", file?: File) => {
     if (!file) return;
-    if (!requirePin()) return;
     if (!file.type.startsWith("image/")) return toast.error("File harus berupa gambar");
     if (file.size > 2_500_000) return toast.error("Maks 2.5MB");
     const reader = new FileReader();
@@ -192,120 +230,204 @@ function AppSettings() {
         if (rightFileRef.current) rightFileRef.current.value = "";
         toast.success("Logo kanan berhasil disimpan");
       }
+      resetAction();
     };
     reader.readAsDataURL(file);
   };
 
   const clearLogo = (side: "left" | "right") => {
-    if (!requirePin()) return;
     if (side === "left") setLogo(null);
     else setRightLogo(null);
     toast.success(side === "left" ? "Logo kiri dihapus" : "Logo kanan dihapus");
+    resetAction();
   };
 
   const deleteCustomer = (name: string) => {
-    if (!requirePin()) return;
     const key = name.trim().toLowerCase();
     const hasActivePiutang = db.sales.some((s) => s.customer.trim().toLowerCase() === key && saleOutstanding(db, s.id) > 0);
     if (hasActivePiutang) {
       toast.error("Customer masih punya piutang aktif. Lunasi atau hapus pembayaran terkait dulu.");
       return;
     }
-    const ok = window.confirm(`Hapus ${name} dari daftar customer? Riwayat transaksi lama tetap tersimpan.`);
-    if (!ok) return;
     removeCustomerFromMaster(name);
     toast.success("Customer dihapus dari daftar");
   };
 
+  const logout = () => {
+    const ok = window.confirm("Yakin ingin keluar dari akun ini?");
+    if (!ok) return;
+    setOpen(false);
+    signOut();
+  };
+
+  const renderActionContent = () => {
+    if (!active) return null;
+
+    if (!verified) {
+      return (
+        <form onSubmit={submitPin} className="space-y-4 rounded-xl border bg-muted/20 p-4">
+          <div>
+            <div className="text-sm font-semibold">{settingsLabels[active]}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Masukkan PIN aktif untuk membuka pengaturan ini.</p>
+          </div>
+          <Input type="password" autoFocus value={pin} onChange={(e) => setPinInput(e.target.value)} placeholder="Masukkan PIN" />
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={resetAction}>Batal</Button>
+            <Button type="submit">Lanjut</Button>
+          </DialogFooter>
+        </form>
+      );
+    }
+
+    if (active === "pin") {
+      return (
+        <div className="space-y-3 rounded-xl border p-4">
+          <div>
+            <div className="text-sm font-semibold">Ganti PIN</div>
+            <p className="mt-1 text-xs text-muted-foreground">PIN baru minimal 4 karakter.</p>
+          </div>
+          <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="PIN baru" />
+          <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Konfirmasi PIN baru" />
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={resetAction}>Batal</Button>
+            <Button type="button" onClick={savePin}>Simpan PIN</Button>
+          </DialogFooter>
+        </div>
+      );
+    }
+
+    if (active === "left-logo" || active === "right-logo") {
+      const side = active === "left-logo" ? "left" : "right";
+      const logo = side === "left" ? leftLogo : rightLogo;
+      const ref = side === "left" ? leftFileRef : rightFileRef;
+      return (
+        <div className="space-y-3 rounded-xl border p-4">
+          <LogoSettingCard
+            title={settingsLabels[active]}
+            logo={logo}
+            onPick={() => ref.current?.click()}
+            onClear={() => clearLogo(side)}
+          />
+          <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoFile(side, e.target.files?.[0])} />
+          <DialogFooter><Button type="button" variant="outline" onClick={resetAction}>Batal</Button></DialogFooter>
+        </div>
+      );
+    }
+
+    if (active === "main-header") {
+      return (
+        <div className="space-y-3 rounded-xl border p-4">
+          <div>
+            <Label>Header Utama</Label>
+            <Input value={mainHeaderText} onChange={(e) => setMainHeaderText(e.target.value)} placeholder={APP_TITLE} />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={resetAction}>Batal</Button>
+            <Button type="button" onClick={saveMainHeader}>Simpan</Button>
+          </DialogFooter>
+        </div>
+      );
+    }
+
+    if (active === "workspace-header") {
+      return (
+        <div className="space-y-3 rounded-xl border p-4">
+          <div>
+            <Label>Header Dalam Bazar</Label>
+            <Input value={workspaceHeaderText} onChange={(e) => setWorkspaceHeaderText(e.target.value)} placeholder={WORKSPACE_ORG_LABEL} />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={resetAction}>Batal</Button>
+            <Button type="button" onClick={saveWorkspaceHeader}>Simpan</Button>
+          </DialogFooter>
+        </div>
+      );
+    }
+
+    if (active === "customers") {
+      return (
+        <div className="space-y-3 rounded-xl border p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold"><Users className="h-4 w-4" /> Kelola Customer Terdaftar</div>
+          <p className="text-[10px] text-muted-foreground">
+            Hapus customer hanya dari daftar pilihan/dropdown. Riwayat pesanan, penjualan, dan pembayaran lama tetap tersimpan.
+          </p>
+          {customers.length === 0 ? (
+            <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">Belum ada customer terdaftar.</div>
+          ) : (
+            <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+              {customers.map((name) => {
+                const hasActivePiutang = db.sales.some((s) => s.customer.trim().toLowerCase() === name.trim().toLowerCase() && saleOutstanding(db, s.id) > 0);
+                return (
+                  <div key={name} className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{name}</div>
+                      {hasActivePiutang && <div className="text-[10px] text-warning">Masih punya piutang aktif</div>}
+                    </div>
+                    <PinConfirmDelete
+                      label={name}
+                      requirePin
+                      canDelete={() => {
+                        if (hasActivePiutang) {
+                          toast.error("Customer masih punya piutang aktif. Lunasi atau hapus pembayaran terkait dulu.");
+                          return false;
+                        }
+                        return true;
+                      }}
+                      onConfirm={() => deleteCustomer(name)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <DialogFooter><Button type="button" variant="outline" onClick={resetAction}>Kembali</Button></DialogFooter>
+        </div>
+      );
+    }
+  };
+
+  const menuItems: { action: SettingsAction; icon?: ReactNode }[] = [
+    { action: "pin" },
+    { action: "left-logo" },
+    { action: "right-logo" },
+    { action: "main-header" },
+    { action: "workspace-header" },
+    { action: "customers", icon: <Users className="h-4 w-4" /> },
+  ];
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) { setPinInput(""); setNext(""); setConfirm(""); } }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) resetAction(); }}>
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost" aria-label="Pengaturan"><Settings className="h-4 w-4" /></Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Pengaturan Aplikasi</DialogTitle></DialogHeader>
-        <div className="space-y-5">
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <Label>PIN Pengaturan</Label>
-            <Input className="mt-1" type="password" value={pin} onChange={(e) => setPinInput(e.target.value)} placeholder="Masukkan PIN untuk mengubah pengaturan" />
-            <p className="mt-1 text-[10px] text-muted-foreground">Default awal: <b>PHBW2026</b>. Semua perubahan di bawah wajib memakai PIN.</p>
-          </div>
-
-          <div className="space-y-2 rounded-lg border p-3">
-            <div className="text-sm font-semibold">Ganti PIN</div>
-            <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="PIN baru" />
-            <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Konfirmasi PIN baru" />
-            <Button type="button" size="sm" onClick={savePin}>Simpan PIN Baru</Button>
-          </div>
-
-          <div className="space-y-3 rounded-lg border p-3">
-            <div className="text-sm font-semibold">Logo Aplikasi</div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <LogoSettingCard
-                title="Ganti Logo Kiri"
-                logo={leftLogo}
-                onPick={() => leftFileRef.current?.click()}
-                onClear={() => clearLogo("left")}
-              />
-              <LogoSettingCard
-                title="Ganti Logo Kanan"
-                logo={rightLogo}
-                onPick={() => rightFileRef.current?.click()}
-                onClear={() => clearLogo("right")}
-              />
+        <div className="space-y-3">
+          {!active ? (
+            <div className="space-y-2">
+              {menuItems.map(({ action, icon }) => (
+                <button
+                  key={action}
+                  type="button"
+                  onClick={() => openAction(action)}
+                  className="flex w-full items-center justify-between rounded-xl border bg-card px-4 py-3 text-left text-sm font-medium transition hover:bg-muted/50"
+                >
+                  <span className="flex items-center gap-2">{icon}{settingsLabels[action]}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={logout}
+                className="flex w-full items-center justify-between rounded-xl border bg-card px-4 py-3 text-left text-sm font-medium text-destructive transition hover:bg-destructive/5"
+              >
+                <span className="flex items-center gap-2"><LogOut className="h-4 w-4" /> Log Out</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <p className="pt-1 text-[10px] text-muted-foreground">PIN aktif sekarang: {"•".repeat(getPin().length)}</p>
             </div>
-            <input ref={leftFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoFile("left", e.target.files?.[0])} />
-            <input ref={rightFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoFile("right", e.target.files?.[0])} />
-          </div>
-
-          <div className="space-y-3 rounded-lg border p-3">
-            <div className="text-sm font-semibold">Header</div>
-            <div>
-              <Label>Ubah Header Utama</Label>
-              <Input value={mainHeaderText} onChange={(e) => setMainHeaderText(e.target.value)} placeholder={APP_TITLE} />
-            </div>
-            <div>
-              <Label>Ubah Header Dalam Bazar</Label>
-              <Input value={workspaceHeaderText} onChange={(e) => setWorkspaceHeaderText(e.target.value)} placeholder={WORKSPACE_ORG_LABEL} />
-            </div>
-            <Button type="button" size="sm" onClick={saveHeaders}>Simpan Header</Button>
-          </div>
-
-          <div className="space-y-3 rounded-lg border p-3">
-            <div className="flex items-center gap-2 text-sm font-semibold"><Users className="h-4 w-4" /> Kelola Customer Terdaftar</div>
-            <p className="text-[10px] text-muted-foreground">
-              Hapus customer hanya dari daftar pilihan/dropdown. Riwayat pesanan, penjualan, dan pembayaran lama tetap tersimpan.
-            </p>
-            {customers.length === 0 ? (
-              <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">Belum ada customer terdaftar.</div>
-            ) : (
-              <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
-                {customers.map((name) => {
-                  const hasActivePiutang = db.sales.some((s) => s.customer.trim().toLowerCase() === name.trim().toLowerCase() && saleOutstanding(db, s.id) > 0);
-                  return (
-                    <div key={name} className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{name}</div>
-                        {hasActivePiutang && <div className="text-[10px] text-warning">Masih punya piutang aktif</div>}
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="shrink-0 gap-1 text-destructive hover:text-destructive"
-                        onClick={() => deleteCustomer(name)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Hapus
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          ) : renderActionContent()}
         </div>
-        <DialogFooter />
-        <p className="text-[10px] text-muted-foreground">PIN aktif sekarang: {"•".repeat(getPin().length)}</p>
       </DialogContent>
     </Dialog>
   );

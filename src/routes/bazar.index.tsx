@@ -62,6 +62,13 @@ function BazarList() {
     setOpen(false);
   };
 
+  const bazarHasData = (id: string) =>
+    db.menus.some((x) => x.bazarId === id) ||
+    db.orders.some((x) => x.bazarId === id) ||
+    db.sales.some((x) => x.bazarId === id) ||
+    db.expenses.some((x) => x.bazarId === id) ||
+    db.payments.some((x) => x.bazarId === id);
+
   const remove = (id: string) => {
     setDB((d) => {
       d.bazars = d.bazars.filter((x) => x.id !== id);
@@ -142,7 +149,7 @@ function BazarList() {
                     <Button size="icon" variant="ghost" onClick={() => openEdit(b.id)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} />
+                    <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
                   </div>
                 </div>
               </div>
@@ -207,44 +214,84 @@ export function ConfirmDelete({ onConfirm, label }: { onConfirm: () => void; lab
   );
 }
 
-export function PinConfirmDelete({ onConfirm, label }: { onConfirm: () => void; label: string }) {
+export function PinConfirmDelete({
+  onConfirm,
+  label,
+  requirePin = true,
+  canDelete,
+}: {
+  onConfirm: () => void;
+  label: string;
+  requirePin?: boolean;
+  canDelete?: () => boolean;
+}) {
   const [pin, setPin] = useState("");
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"confirm" | "pin">("confirm");
 
-  const confirm = (e: React.MouseEvent) => {
+  const reset = () => {
+    setOpen(false);
+    setStep("confirm");
+    setPin("");
+  };
+
+  const startDelete = () => {
+    if (canDelete && !canDelete()) return;
+    setStep("confirm");
+    setOpen(true);
+  };
+
+  const proceed = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (requirePin) {
+      setStep("pin");
+      return;
+    }
+    onConfirm();
+    reset();
+  };
+
+  const confirmWithPin = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!verifyPin(pin)) {
       toast.error("PIN salah");
       return;
     }
     onConfirm();
-    setOpen(false);
-    setPin("");
+    reset();
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setPin(""); }}>
-      <AlertDialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Hapus {label}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Masukkan PIN aktif untuk menghapus data ini. Tindakan ini tidak dapat dibatalkan.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="space-y-2">
-          <Label>PIN</Label>
-          <Input type="password" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Masukkan PIN" />
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Batal</AlertDialogCancel>
-          <AlertDialogAction onClick={confirm}>Hapus</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <>
+      <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={startDelete}>
+        <Trash2 className="h-4 w-4" />
+      </Button>
+      <AlertDialog open={open} onOpenChange={(v) => { if (!v) reset(); else setOpen(true); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{step === "confirm" ? `Hapus ${label}?` : "Masukkan PIN"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {step === "confirm"
+                ? "Tindakan ini tidak dapat dibatalkan. Lanjutkan menghapus data ini?"
+                : "Masukkan PIN aktif untuk melanjutkan penghapusan."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {step === "pin" && (
+            <div className="space-y-2">
+              <Label>PIN</Label>
+              <Input type="password" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Masukkan PIN" />
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            {step === "confirm" ? (
+              <AlertDialogAction onClick={proceed}>Ya, Hapus</AlertDialogAction>
+            ) : (
+              <AlertDialogAction onClick={confirmWithPin}>Hapus</AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

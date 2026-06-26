@@ -7,7 +7,7 @@ import {
   useRouterState,
   Navigate,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { AppHeader } from "@/components/AppHeader";
@@ -32,8 +32,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "Aplikasi Bazar PHBW 2026" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#047857" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "PHBW 2026" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -71,6 +79,14 @@ function RootComponent() {
   const isAuthPage = pathname === "/auth";
   const showHeader = pathname === "/" && !!user;
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    const register = () => navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    if (document.readyState === "complete") register();
+    else window.addEventListener("load", register, { once: true });
+    return () => window.removeEventListener("load", register);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
@@ -80,6 +96,7 @@ function RootComponent() {
         <main className="mx-auto max-w-5xl px-4 py-6">
           <Outlet />
         </main>
+        <div className="pointer-events-none fixed bottom-1 right-2 z-40 text-[10px] font-medium text-muted-foreground opacity-60">App created by : JJ</div>
         <Toaster richColors closeButton position="bottom-center" />
       </div>
     </QueryClientProvider>

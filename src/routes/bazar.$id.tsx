@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Lock, Church, Search } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining, useLogo,
@@ -17,8 +17,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ConfirmDelete, PinConfirmDelete } from "./bazar.index";
-import { verifyPin } from "@/lib/pin";
+import { PinConfirmDelete } from "./bazar.index";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/bazar/$id")({
@@ -163,7 +162,7 @@ function MenuTab({ bazarId, menus }: { bazarId: string; menus: MenuItem[] }) {
                 </div>
                 <div className="flex gap-1">
                   <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
-                  <PinConfirmDelete label={m.name} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
+                  <PinConfirmDelete label={m.name} requirePin={m.qty > 0 || sold > 0 || pending > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
                 </div>
               </div>
             );
@@ -374,14 +373,22 @@ function OrderCard({ order, menus, bazarId }: { order: Order; menus: MenuItem[];
         ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {status.fullSold ? (
-          <ConfirmDelete label="pesanan" onConfirm={() => { setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); }); toast.success("Pesanan dihapus"); }} />
+        {db.sales.some((sale) => sale.orderId === order.id) ? (
+          <PinConfirmDelete
+            label="pesanan"
+            requirePin={false}
+            canDelete={() => {
+              toast.error("Pesanan ini sudah memiliki riwayat penjualan. Hapus penjualan terkait terlebih dahulu sebelum menghapus pesanan.");
+              return false;
+            }}
+            onConfirm={() => {}}
+          />
         ) : (
           <>
             <JualDialog order={order} menus={menus} bazarId={bazarId} />
             <EditOrderDialog order={order} menus={menus} />
             <GantiCustomerDialog order={order} menus={menus} />
-            <ConfirmDelete label="pesanan" onConfirm={() => { setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); }); toast.success("Pesanan dihapus"); }} />
+            <PinConfirmDelete label="pesanan" requirePin onConfirm={() => { setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); }); toast.success("Pesanan dihapus"); }} />
           </>
         )}
       </div>
@@ -727,9 +734,6 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
   const db = useDB();
   const outstanding = saleOutstanding(db, sale.id);
   const status = outstanding > 0 ? "PIUTANG" : "LUNAS";
-  const [pinOpen, setPinOpen] = useState(false);
-  const [pin, setPinInput] = useState("");
-
   const doDelete = () => {
     setDB((d) => {
       // Rollback: kembalikan qty ke order asli (atau buat ulang), buka kunci
@@ -749,32 +753,18 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
         delete o.saleId;
       }
       d.sales = d.sales.filter((x) => x.id !== sale.id);
-      d.payments = d.payments.filter((p) => p.saleId !== sale.id);
     });
     toast.success("Penjualan dihapus & qty pesanan dikembalikan (terbuka kembali)");
-    setPinOpen(false); setPinInput("");
   };
 
   const hasPiutangPayments = db.payments.some((p) => p.saleId === sale.id);
 
-  const handleDeleteClick = () => {
+  const canDeleteSale = () => {
     if (hasPiutangPayments) {
       toast.error("Penjualan ini sudah memiliki pembayaran piutang. Hapus pembayaran piutang terkait terlebih dahulu.");
-      return;
+      return false;
     }
-    setPinOpen(true);
-  };
-
-  const onPinSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!verifyPin(pin)) { toast.error("PIN salah"); return; }
-    if (db.payments.some((p) => p.saleId === sale.id)) {
-      toast.error("Penjualan ini sudah memiliki pembayaran piutang. Hapus pembayaran piutang terkait terlebih dahulu.");
-      setPinOpen(false);
-      setPinInput("");
-      return;
-    }
-    doDelete();
+    return true;
   };
 
   const printNota = () => {
@@ -833,21 +823,8 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
       )}
       <div className="mt-3 flex gap-2">
         <Button size="sm" variant="outline" onClick={printNota}><Printer className="h-4 w-4" /> Nota</Button>
-        <Button size="sm" variant="destructive" onClick={handleDeleteClick}><Lock className="h-4 w-4" /> Hapus</Button>
+        <PinConfirmDelete label="penjualan" requirePin canDelete={canDeleteSale} onConfirm={doDelete} />
       </div>
-
-      <Dialog open={pinOpen} onOpenChange={setPinOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Konfirmasi PIN</DialogTitle>
-            <DialogDescription>Masukkan PIN aktif untuk menghapus penjualan ini. Qty akan dikembalikan ke pesanan. Jika sudah ada pembayaran piutang, pembayaran terkait harus dihapus terlebih dahulu.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={onPinSubmit} className="space-y-3">
-            <Input type="password" autoFocus placeholder="PIN" value={pin} onChange={(e) => setPinInput(e.target.value)} />
-            <DialogFooter><Button type="submit" variant="destructive">Hapus</Button></DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -927,7 +904,7 @@ function PengeluaranTab({ bazarId, expenses }: { bazarId: string; expenses: Retu
                 <Button size="icon" variant="ghost" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <ConfirmDelete label={e.name} onConfirm={() => { setDB((d) => { d.expenses = d.expenses.filter((x) => x.id !== e.id); }); }} />
+                <PinConfirmDelete label={e.name} requirePin={(e.amount || 0) > 0} onConfirm={() => { setDB((d) => { d.expenses = d.expenses.filter((x) => x.id !== e.id); }); toast.success("Pengeluaran dihapus"); }} />
               </div>
             </div>
           ))}
