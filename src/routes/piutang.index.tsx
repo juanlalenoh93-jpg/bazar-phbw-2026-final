@@ -25,11 +25,15 @@ function PiutangList() {
 
   const { list, totalAll } = useMemo(() => {
     const map = new Map<string, number>();
+    const firstInput = new Map<string, number>();
     for (const s of db.sales) {
       const out = saleOutstanding(db, s.id);
-      if (out > 0) map.set(s.customer, (map.get(s.customer) || 0) + out);
+      if (out > 0) {
+        map.set(s.customer, (map.get(s.customer) || 0) + out);
+        firstInput.set(s.customer, Math.min(firstInput.get(s.customer) || s.createdAt, s.createdAt));
+      }
     }
-    const list = [...map.entries()].sort((a, b) => b[1] - a[1]);
+    const list = [...map.entries()].sort((a, b) => (firstInput.get(a[0]) || 0) - (firstInput.get(b[0]) || 0));
     const totalAll = list.reduce((s, [, v]) => s + v, 0);
     return { list, totalAll };
   }, [db]);

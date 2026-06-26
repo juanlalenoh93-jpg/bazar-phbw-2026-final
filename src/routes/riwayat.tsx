@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, History, Printer, Share2 } from "lucide-react";
-import { useDB, fmtIDR, fmtDateTime } from "@/lib/storage";
+import { useDB, setDB, fmtIDR, fmtDateTime } from "@/lib/storage";
 import { ORGANIZATION_NAME } from "@/lib/branding";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PinConfirmDelete } from "./bazar.index";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/riwayat")({
   component: RiwayatPage,
@@ -11,7 +13,7 @@ export const Route = createFileRoute("/riwayat")({
 
 function RiwayatPage() {
   const db = useDB();
-  const list = [...db.payments].sort((a, b) => b.date - a.date);
+  const list = [...db.payments].sort((a, b) => a.date - b.date);
   const bazarName = (id: string) => db.bazars.find((b) => b.id === id)?.name || "?";
   const paymentBreakdown = (p: typeof list[number]) => {
     const sale = db.sales.find((s) => s.id === p.saleId);
@@ -81,7 +83,7 @@ function RiwayatPage() {
       </Link>
       <div>
         <h2 className="text-2xl font-bold">Riwayat Pembayaran Piutang</h2>
-        <p className="text-sm text-muted-foreground">Diurutkan dari pembayaran terbaru.</p>
+        <p className="text-sm text-muted-foreground">Diurutkan dari pembayaran yang paling dulu diinput.</p>
       </div>
 
       {list.length === 0 ? (
@@ -113,13 +115,20 @@ function RiwayatPage() {
                   <img src={p.proof} alt="bukti" className="h-14 rounded border" />
                 </a>
               )}
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={() => printNota(p)} className="gap-1 text-xs">
                   <Printer className="h-3.5 w-3.5" /> Cetak Nota
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => shareWA(p)} className="gap-1 text-xs">
                   <Share2 className="h-3.5 w-3.5" /> Kirim WA
                 </Button>
+                <PinConfirmDelete
+                  label="pembayaran piutang"
+                  onConfirm={() => {
+                    setDB((d) => { d.payments = d.payments.filter((x) => x.id !== p.id); });
+                    toast.success("Pembayaran piutang dihapus");
+                  }}
+                />
               </div>
             </div>
           ))}

@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, LogOut, Camera, X } from "lucide-react";
+import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, LogOut, Camera, X, Trash2, Users } from "lucide-react";
 import { SheetSyncSettings } from "@/components/SheetSyncSettings";
 import { useEffect, useRef, useState } from "react";
-import { useDB, computeSaldo, fmtIDR, useLogo, useRightLogo, setLogo, setRightLogo } from "@/lib/storage";
+import { useDB, computeSaldo, fmtIDR, useLogo, useRightLogo, setLogo, setRightLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding } from "@/lib/storage";
 import { exportAll, useSheetUrl } from "@/lib/sync";
 import { signOut, useAuth } from "@/lib/auth";
 import { APP_TITLE, WORKSPACE_ORG_LABEL, setMainHeader, setWorkspaceHeader, useMainHeader, useWorkspaceHeader } from "@/lib/branding";
@@ -125,6 +125,8 @@ function Dashboard() {
 }
 
 function AppSettings() {
+  const db = useDB();
+  const customers = allCustomersGlobal(db);
   const [open, setOpen] = useState(false);
   const [pin, setPinInput] = useState("");
   const [next, setNext] = useState("");
@@ -201,6 +203,20 @@ function AppSettings() {
     toast.success(side === "left" ? "Logo kiri dihapus" : "Logo kanan dihapus");
   };
 
+  const deleteCustomer = (name: string) => {
+    if (!requirePin()) return;
+    const key = name.trim().toLowerCase();
+    const hasActivePiutang = db.sales.some((s) => s.customer.trim().toLowerCase() === key && saleOutstanding(db, s.id) > 0);
+    if (hasActivePiutang) {
+      toast.error("Customer masih punya piutang aktif. Lunasi atau hapus pembayaran terkait dulu.");
+      return;
+    }
+    const ok = window.confirm(`Hapus ${name} dari daftar customer? Riwayat transaksi lama tetap tersimpan.`);
+    if (!ok) return;
+    removeCustomerFromMaster(name);
+    toast.success("Customer dihapus dari daftar");
+  };
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) { setPinInput(""); setNext(""); setConfirm(""); } }}>
       <DialogTrigger asChild>
@@ -253,6 +269,39 @@ function AppSettings() {
               <Input value={workspaceHeaderText} onChange={(e) => setWorkspaceHeaderText(e.target.value)} placeholder={WORKSPACE_ORG_LABEL} />
             </div>
             <Button type="button" size="sm" onClick={saveHeaders}>Simpan Header</Button>
+          </div>
+
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="flex items-center gap-2 text-sm font-semibold"><Users className="h-4 w-4" /> Kelola Customer Terdaftar</div>
+            <p className="text-[10px] text-muted-foreground">
+              Hapus customer hanya dari daftar pilihan/dropdown. Riwayat pesanan, penjualan, dan pembayaran lama tetap tersimpan.
+            </p>
+            {customers.length === 0 ? (
+              <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">Belum ada customer terdaftar.</div>
+            ) : (
+              <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                {customers.map((name) => {
+                  const hasActivePiutang = db.sales.some((s) => s.customer.trim().toLowerCase() === name.trim().toLowerCase() && saleOutstanding(db, s.id) > 0);
+                  return (
+                    <div key={name} className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{name}</div>
+                        {hasActivePiutang && <div className="text-[10px] text-warning">Masih punya piutang aktif</div>}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0 gap-1 text-destructive hover:text-destructive"
+                        onClick={() => deleteCustomer(name)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Hapus
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter />

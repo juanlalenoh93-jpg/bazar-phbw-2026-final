@@ -23,7 +23,7 @@ function CustomerDetail() {
 
   const sales = db.sales
     .filter((s) => s.customer === customer && saleOutstanding(db, s.id) > 0)
-    .sort((a, b) => b.createdAt - a.createdAt);
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   const totalOut = sales.reduce((s, x) => s + saleOutstanding(db, x.id), 0);
   const bazarName = (id: string) => db.bazars.find((b) => b.id === id)?.name || "?";
@@ -110,7 +110,7 @@ function BayarDialog({
       amount: n, method, proof, date: Date.now(),
     };
     setDB((d) => {
-      d.payments.unshift(newPayment);
+      d.payments.push(newPayment);
     });
     toast.success("Pembayaran tercatat");
     setOpen(false); setAmount(""); setProof(undefined); setMethod("cash");

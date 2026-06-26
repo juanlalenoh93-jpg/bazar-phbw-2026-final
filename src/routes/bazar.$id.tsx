@@ -44,16 +44,18 @@ function BazarDetail() {
       </div>
     );
   }
-  const menus = db.menus.filter((m) => m.bazarId === id);
+  const menus = db.menus
+    .filter((m) => m.bazarId === id)
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   const orders = db.orders
-    .filter((o) => o.bazarId === id && o.items.some((i) => i.qty > 0))
-    .sort((a, b) => Number(!!a.soldAt) - Number(!!b.soldAt) || a.customer.localeCompare(b.customer, "id"));
+    .filter((o) => o.bazarId === id)
+    .sort((a, b) => a.createdAt - b.createdAt);
   const sales = db.sales
     .filter((s) => s.bazarId === id)
-    .sort((a, b) => b.createdAt - a.createdAt);
+    .sort((a, b) => a.createdAt - b.createdAt);
   const expenses = db.expenses
     .filter((e) => e.bazarId === id)
-    .sort((a, b) => a.name.localeCompare(b.name, "id"));
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   return (
     <div className="space-y-5">
@@ -107,7 +109,7 @@ function MenuTab({ bazarId, menus }: { bazarId: string; menus: MenuItem[] }) {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Nama menu wajib");
-    const newMenu: MenuItem = { id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: +qty || 0 };
+    const newMenu: MenuItem = { id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: +qty || 0, createdAt: Date.now() };
     setDB((d) => {
       if (editId) {
         const m = d.menus.find((x) => x.id === editId);
@@ -209,7 +211,7 @@ function PesananTab({ bazarId, menus, orders }: { bazarId: string; menus: MenuIt
       if (!ok) return;
     }
     const newOrder: Order = { id: uid(), bazarId, customer: trimmed, items, createdAt: Date.now() };
-    setDB((d) => { d.orders.unshift(newOrder); });
+    setDB((d) => { d.orders.push(newOrder); });
     addCustomerToMaster(trimmed);
     toast.success("Pesanan ditambahkan");
     setOpen(false); setCustomer(""); setPicks({});
@@ -291,31 +293,89 @@ function PesananTab({ bazarId, menus, orders }: { bazarId: string; menus: MenuIt
   );
 }
 
+function orderSoldQtyByMenu(db: ReturnType<typeof useDB>, orderId: string): Record<string, number> {
+  const sold: Record<string, number> = {};
+  for (const sale of db.sales.filter((item) => item.orderId === orderId)) {
+    for (const item of sale.items) {
+      sold[item.menuId] = (sold[item.menuId] || 0) + item.qty;
+    }
+  }
+  return sold;
+}
+
+function orderDisplayItems(db: ReturnType<typeof useDB>, order: Order, menus: MenuItem[]) {
+  const sold = orderSoldQtyByMenu(db, order.id);
+  const ids = new Set<string>();
+  order.items.forEach((item) => ids.add(item.menuId));
+  Object.keys(sold).forEach((id) => ids.add(id));
+
+  return Array.from(ids).map((menuId) => {
+    const remainingQty = order.items.find((item) => item.menuId === menuId)?.qty || 0;
+    const soldQty = sold[menuId] || 0;
+    const originalQty = remainingQty + soldQty;
+    const menu = menus.find((m) => m.id === menuId);
+    const saleItem = db.sales.flatMap((sale) => sale.items).find((item) => item.menuId === menuId);
+    return {
+      menuId,
+      name: menu?.name || saleItem?.name || "?",
+      price: menu?.price || saleItem?.price || 0,
+      remainingQty,
+      soldQty,
+      originalQty,
+    };
+  }).filter((item) => item.originalQty > 0);
+}
+
+function orderStatusInfo(db: ReturnType<typeof useDB>, order: Order) {
+  const soldQty = db.sales
+    .filter((sale) => sale.orderId === order.id)
+    .flatMap((sale) => sale.items)
+    .reduce((sum, item) => sum + item.qty, 0);
+  const remainingQty = order.items.reduce((sum, item) => sum + item.qty, 0);
+
+  if (soldQty === 0) return { label: "Belum di proses", fullSold: false, partialSold: false };
+  if (remainingQty === 0) return { label: "Terjual", fullSold: true, partialSold: false };
+  return { label: "Sebagian Terjual", fullSold: false, partialSold: true };
+}
+
 function OrderCard({ order, menus, bazarId }: { order: Order; menus: MenuItem[]; bazarId: string }) {
-  const menuName = (id: string) => menus.find((m) => m.id === id)?.name || "?";
-  const menuPrice = (id: string) => menus.find((m) => m.id === id)?.price || 0;
-  const sold = !!order.soldAt;
+  const db = useDB();
+  const displayItems = orderDisplayItems(db, order, menus);
+  const status = orderStatusInfo(db, order);
 
   return (
-    <div className={`rounded-2xl border p-4 ${sold ? "border-emerald-200 bg-emerald-50/40" : "bg-card"}`}>
+    <div className={`rounded-2xl border p-4 ${status.fullSold ? "border-emerald-200 bg-emerald-50/40" : status.partialSold ? "border-amber-200 bg-amber-50/40" : "bg-card"}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="font-semibold truncate">{order.customer}</div>
           <div className="text-xs text-muted-foreground">{fmtDateTime(order.createdAt)}</div>
         </div>
-        {sold ? <Badge className="gap-1 bg-emerald-600"><CheckCircle2 className="h-3 w-3" /> Terjual</Badge> : <Badge variant="secondary">Pesanan</Badge>}
+        {status.fullSold ? (
+          <Badge className="gap-1 bg-emerald-600"><CheckCircle2 className="h-3 w-3" /> {status.label}</Badge>
+        ) : status.partialSold ? (
+          <Badge className="bg-amber-500 text-white">{status.label}</Badge>
+        ) : (
+          <Badge variant="secondary">{status.label}</Badge>
+        )}
       </div>
       <div className="mt-3 space-y-1 text-sm">
-        {order.items.filter((i) => i.qty > 0).map((i) => (
-          <div key={i.menuId} className="flex justify-between rounded-md bg-muted/50 px-2 py-1">
-            <span>{menuName(i.menuId)} × {i.qty}</span>
-            <span className="text-muted-foreground">{fmtIDR(menuPrice(i.menuId) * i.qty)}</span>
+        {displayItems.map((i) => (
+          <div key={i.menuId} className="rounded-md bg-muted/50 px-2 py-1">
+            <div className="flex justify-between">
+              <span>{i.name} × {i.originalQty}</span>
+              <span className="text-muted-foreground">{fmtIDR(i.price * i.originalQty)}</span>
+            </div>
+            {(i.soldQty > 0 || status.partialSold || status.fullSold) && (
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                Terjual {i.soldQty} · Sisa {i.remainingQty}
+              </div>
+            )}
           </div>
         ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {sold ? (
-          <div className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"><Lock className="h-3 w-3" /> Terkunci</div>
+        {status.fullSold ? (
+          <ConfirmDelete label="pesanan" onConfirm={() => { setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); }); toast.success("Pesanan dihapus"); }} />
         ) : (
           <>
             <JualDialog order={order} menus={menus} bazarId={bazarId} />
@@ -570,7 +630,7 @@ function GantiCustomerDialog({ order, menus }: { order: Order; menus: MenuItem[]
           const oi = o.items.find((x) => x.menuId === mv.menuId);
           if (oi) { oi.qty -= mv.takeQty; newItems.push({ menuId: mv.menuId, qty: mv.takeQty }); }
         }
-        d.orders.unshift({
+        d.orders.push({
           id: uid(), bazarId: o.bazarId, customer: trimmed, items: newItems,
           createdAt: Date.now(), originalCustomer: o.customer,
         });
@@ -677,7 +737,7 @@ function SaleCard({ sale, bazarName }: { sale: Sale; bazarName: string }) {
         let o = d.orders.find((x) => x.id === sale.orderId);
         if (!o) {
           o = { id: sale.orderId, bazarId: sale.bazarId, customer: sale.customer, items: [], createdAt: Date.now() };
-          d.orders.unshift(o);
+          d.orders.push(o);
         }
         for (const it of sale.items) {
           const oi = o.items.find((x) => x.menuId === it.menuId);

@@ -22,6 +22,7 @@ export const Route = createFileRoute("/bazar/")({
 
 function BazarList() {
   const db = useDB();
+  const bazars = [...db.bazars].sort((a, b) => a.createdAt - b.createdAt);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -54,7 +55,7 @@ function BazarList() {
           b.date = date;
         }
       } else {
-        d.bazars.unshift(newBazar);
+        d.bazars.push(newBazar);
       }
     });
     toast.success(editId ? "Bazar diperbarui" : "Bazar ditambahkan");
@@ -112,11 +113,11 @@ function BazarList() {
         </Dialog>
       </div>
 
-      {db.bazars.length === 0 ? (
+      {bazars.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="grid gap-3">
-          {db.bazars.map((b) => {
+          {bazars.map((b) => {
             const s = bazarStats(db, b.id);
             return (
               <div key={b.id} className="rounded-2xl border bg-card p-4">

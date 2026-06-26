@@ -51,6 +51,11 @@ export function useSheetUrl(): string {
 // ============= Row Builders (1 menu/item = 1 baris) =============
 type Row = (string | number)[];
 
+const sortByCreatedAt = <T extends { createdAt?: number }>(items: T[]) =>
+  [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+const prettyId = (prefix: string, index: number) => `${prefix}${String(index + 1).padStart(3, "0")}`;
+
 function bazarName(db: DB, bazarId: string): string {
   return db.bazars.find((b) => b.id === bazarId)?.name || bazarId || "";
 }
@@ -86,85 +91,127 @@ function allocateAmount(totalAmount: number, subtotals: number[]): number[] {
   });
 }
 
-export function bazarRows(bazar: Bazar): Row[] {
-  return [[bazar.id, bazar.name, bazar.date]];
+function soldQtyByMenuForOrder(db: DB, orderId: string): Record<string, number> {
+  const sold: Record<string, number> = {};
+  for (const sale of db.sales.filter((item) => item.orderId === orderId)) {
+    for (const item of sale.items) {
+      sold[item.menuId] = (sold[item.menuId] || 0) + item.qty;
+    }
+  }
+  return sold;
 }
 
-export function orderRows(db: DB, order: Order): Row[] {
-  const bazar = bazarName(db, order.bazarId);
-  const isFullySold = !!order.soldAt;
-  const shifted =
-    order.originalCustomer && order.originalCustomer !== order.customer
-      ? `${order.originalCustomer} → ${order.customer}`
-      : "";
+function orderOriginalItems(db: DB, order: Order) {
+  const sold = soldQtyByMenuForOrder(db, order.id);
+  const ids = new Set<string>();
+  for (const item of order.items) ids.add(item.menuId);
+  Object.keys(sold).forEach((id) => ids.add(id));
 
-  return order.items
-    .filter((item) => item.qty > 0)
-    .map((item) => {
-      const price = menuPrice(db, item.menuId);
-      return [
-        order.id,
-        bazar,
-        order.customer,
-        menuName(db, item.menuId),
-        item.qty,
-        price * item.qty,
-        isFullySold ? "Ya" : "Tidak",
-        shifted,
-        order.note || "",
-      ];
-    });
+  return Array.from(ids).map((menuId) => {
+    const remainingQty = order.items.find((item) => item.menuId === menuId)?.qty || 0;
+    const soldQty = sold[menuId] || 0;
+    const originalQty = remainingQty + soldQty;
+    return {
+      menuId,
+      qty: originalQty,
+      soldQty,
+      price: menuPrice(db, menuId),
+      name: menuName(db, menuId),
+    };
+  }).filter((item) => item.qty > 0);
 }
 
-export function saleRows(db: DB, sale: Sale): Row[] {
-  const bazar = bazarName(db, sale.bazarId);
-  const piutangPayments = db.payments
-    .filter((payment) => payment.saleId === sale.id)
-    .reduce((sum, payment) => sum + payment.amount, 0);
-  const paidTotal = sale.paid + piutangPayments;
-  const status = paymentStatus(sale.total, paidTotal);
-  const subtotals = sale.items.map((item) => item.price * item.qty);
-  const paidByItem = allocateAmount(paidTotal, subtotals);
-
-  return sale.items.map((item, index) => [
-    sale.id,
-    bazar,
-    sale.customer,
-    item.name,
-    item.qty,
-    subtotals[index],
-    paidByItem[index],
-    paymentMethodLabel(sale.method),
-    status,
+export function bazarRows(bazars: Bazar[]): Row[] {
+  return sortByCreatedAt(bazars).map((bazar, index) => [
+    prettyId("BZR", index),
+    bazar.name,
+    bazar.date,
   ]);
 }
 
-export function expenseRows(db: DB, expense: Expense): Row[] {
-  return [[
-    expense.id,
+export function orderRows(db: DB, orders: Order[]): Row[] {
+  const rows: Row[] = [];
+  sortByCreatedAt(orders).forEach((order, index) => {
+    const bazar = bazarName(db, order.bazarId);
+    const shifted =
+      order.originalCustomer && order.originalCustomer !== order.customer
+        ? `${order.originalCustomer} → ${order.customer}`
+        : "";
+
+    for (const item of orderOriginalItems(db, order)) {
+      rows.push([
+        prettyId("PSN", index),
+        bazar,
+        order.customer,
+        item.name,
+        item.qty,
+        item.price * item.qty,
+        item.soldQty,
+        shifted,
+        order.note || "",
+      ]);
+    }
+  });
+  return rows;
+}
+
+export function saleRows(db: DB, sales: Sale[]): Row[] {
+  const rows: Row[] = [];
+  sortByCreatedAt(sales).forEach((sale, index) => {
+    const bazar = bazarName(db, sale.bazarId);
+    const piutangPayments = db.payments
+      .filter((payment) => payment.saleId === sale.id)
+      .reduce((sum, payment) => sum + payment.amount, 0);
+    const paidTotal = sale.paid + piutangPayments;
+    const status = paymentStatus(sale.total, paidTotal);
+    const subtotals = sale.items.map((item) => item.price * item.qty);
+    const paidByItem = allocateAmount(paidTotal, subtotals);
+
+    sale.items.forEach((item, itemIndex) => {
+      rows.push([
+        prettyId("JUAL", index),
+        bazar,
+        sale.customer,
+        item.name,
+        item.qty,
+        subtotals[itemIndex],
+        paidByItem[itemIndex],
+        paymentMethodLabel(sale.method),
+        status,
+      ]);
+    });
+  });
+  return rows;
+}
+
+export function expenseRows(db: DB, expenses: Expense[]): Row[] {
+  return sortByCreatedAt(expenses).map((expense, index) => [
+    prettyId("PNG", index),
     bazarName(db, expense.bazarId),
     expense.name,
     expense.qty || 1,
     expense.amount,
-  ]];
+  ]);
 }
 
-export function paymentRows(db: DB, payment: PiutangPayment): Row[] {
-  const sale = db.sales.find((item) => item.id === payment.saleId);
-  const paidTotal = sale
-    ? sale.paid + db.payments.filter((p) => p.saleId === sale.id).reduce((sum, p) => sum + p.amount, 0)
-    : payment.amount;
+export function paymentRows(db: DB, payments: PiutangPayment[]): Row[] {
+  return [...payments].sort((a, b) => a.date - b.date).map((payment, index) => {
+    const sale = db.sales.find((item) => item.id === payment.saleId);
+    const paidTotal = sale
+      ? sale.paid + db.payments.filter((p) => p.saleId === sale.id).reduce((sum, p) => sum + p.amount, 0)
+      : payment.amount;
 
-  return [[
-    payment.id,
-    bazarName(db, payment.bazarId),
-    payment.customer,
-    payment.amount,
-    paymentMethodLabel(payment.method),
-    sale ? paymentStatus(sale.total, paidTotal) : "Pembayaran Piutang",
-    payment.menuName || "",
-    new Date(payment.date).toISOString(),
-  ]];
+    return [
+      prettyId("BYR", index),
+      bazarName(db, payment.bazarId),
+      payment.customer,
+      payment.amount,
+      paymentMethodLabel(payment.method),
+      sale ? paymentStatus(sale.total, paidTotal) : "Pembayaran Piutang",
+      payment.menuName || "",
+      new Date(payment.date).toISOString(),
+    ];
+  });
 }
 
 // Auto-sync sengaja dimatikan sesuai keputusan final user:
@@ -182,18 +229,16 @@ export function pushToSheet(_type: SyncEventType, _payload: unknown): void {
 // ============= Bulk export final =============
 // Hanya menulis 5 sheet final:
 // Bazar, Pesanan, Penjualan, Pengeluaran, Pembayaran Piutang.
-// Menu tetap dikirim di payload sebagai data bantu agar Apps Script/backup dapat membaca nama dan harga menu,
-// tetapi tidak dibuat sebagai sheet terpisah.
 export async function exportAll(db: DB): Promise<boolean> {
   const targetUrl = load();
   if (!targetUrl) return false;
 
   const sheets: Record<string, Row[]> = {
-    Bazar: db.bazars.flatMap((bazar) => bazarRows(bazar)),
-    Pesanan: db.orders.flatMap((order) => orderRows(db, order)),
-    Penjualan: db.sales.flatMap((sale) => saleRows(db, sale)),
-    Pengeluaran: db.expenses.flatMap((expense) => expenseRows(db, expense)),
-    "Pembayaran Piutang": db.payments.flatMap((payment) => paymentRows(db, payment)),
+    Bazar: bazarRows(db.bazars),
+    Pesanan: orderRows(db, db.orders),
+    Penjualan: saleRows(db, db.sales),
+    Pengeluaran: expenseRows(db, db.expenses),
+    "Pembayaran Piutang": paymentRows(db, db.payments),
   };
 
   try {

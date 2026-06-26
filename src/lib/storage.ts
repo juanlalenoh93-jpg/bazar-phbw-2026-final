@@ -14,6 +14,7 @@ export type MenuItem = {
   name: string;
   price: number;
   qty: number;
+  createdAt?: number;
   cost?: number; // Harga Modal (HPP) per porsi
 };
 
@@ -347,14 +348,52 @@ export function menuRemaining(d: DB, menuId: string, excludeOrderId?: string): n
 
 // =============== Customer Master (global) ===============
 const CUSTOMER_KEY = "phbw-2026-customers-v1";
+const CUSTOMER_DELETED_KEY = "phbw-2026-customers-deleted-v1";
 let customerMaster: string[] | null = null;
+let deletedCustomerMaster: string[] | null = null;
 const customerListeners = new Set<() => void>();
+
+function customerKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function uniqueSortedNames(names: string[]): string[] {
+  const map = new Map<string, string>();
+  for (const raw of names) {
+    const trimmed = String(raw || "").trim();
+    if (!trimmed) continue;
+    const key = customerKey(trimmed);
+    if (!map.has(key)) map.set(key, trimmed);
+  }
+  return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "id"));
+}
+
+function loadDeletedCustomers(): string[] {
+  if (typeof window === "undefined") return [];
+  if (deletedCustomerMaster) return deletedCustomerMaster;
+  try {
+    deletedCustomerMaster = JSON.parse(localStorage.getItem(CUSTOMER_DELETED_KEY) || "[]");
+  } catch {
+    deletedCustomerMaster = [];
+  }
+  return deletedCustomerMaster!;
+}
+
+function saveDeletedCustomers() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(CUSTOMER_DELETED_KEY, JSON.stringify(deletedCustomerMaster || []));
+}
+
+function isCustomerDeleted(name: string): boolean {
+  const key = customerKey(name);
+  return loadDeletedCustomers().some((n) => customerKey(n) === key);
+}
 
 function loadCustomers(): string[] {
   if (typeof window === "undefined") return [];
   if (customerMaster) return customerMaster;
   try {
-    customerMaster = JSON.parse(localStorage.getItem(CUSTOMER_KEY) || "[]");
+    customerMaster = uniqueSortedNames(JSON.parse(localStorage.getItem(CUSTOMER_KEY) || "[]"));
   } catch {
     customerMaster = [];
   }
@@ -363,6 +402,7 @@ function loadCustomers(): string[] {
 
 function saveCustomers() {
   if (typeof window === "undefined") return;
+  customerMaster = uniqueSortedNames(customerMaster || []);
   localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customerMaster || []));
   customerListeners.forEach((l) => l());
 }
@@ -371,31 +411,51 @@ export function addCustomerToMaster(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return;
   loadCustomers();
-  const exists = customerMaster!.some((n) => n.toLowerCase() === trimmed.toLowerCase());
-  if (exists) return;
-  customerMaster = [...customerMaster!, trimmed].sort((a, b) => a.localeCompare(b, "id"));
+  loadDeletedCustomers();
+  const key = customerKey(trimmed);
+  deletedCustomerMaster = (deletedCustomerMaster || []).filter((n) => customerKey(n) !== key);
+  saveDeletedCustomers();
+  const exists = customerMaster!.some((n) => customerKey(n) === key);
+  if (!exists) customerMaster = [...customerMaster!, trimmed];
+  saveCustomers();
+}
+
+export function removeCustomerFromMaster(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  loadCustomers();
+  loadDeletedCustomers();
+  const key = customerKey(trimmed);
+  customerMaster = (customerMaster || []).filter((n) => customerKey(n) !== key);
+  if (!(deletedCustomerMaster || []).some((n) => customerKey(n) === key)) {
+    deletedCustomerMaster = [...(deletedCustomerMaster || []), trimmed];
+  }
+  saveDeletedCustomers();
   saveCustomers();
 }
 
 export function useCustomerMaster(): string[] {
   return useSyncExternalStore(
     (cb) => { customerListeners.add(cb); return () => customerListeners.delete(cb); },
-    () => loadCustomers(),
+    () => loadCustomers().filter((n) => !isCustomerDeleted(n)),
     () => [],
   );
 }
 
-// Gabungan master + nama dari data — case-insensitive unique
+// Gabungan master + nama dari data — case-insensitive unique.
+// Nama yang dihapus dari daftar customer tetap tersimpan di riwayat transaksi,
+// tetapi tidak muncul lagi di dropdown sampai diketik/didaftarkan ulang.
 export function allCustomersGlobal(d: DB): string[] {
   const set = new Map<string, string>();
-  for (const n of loadCustomers()) set.set(n.toLowerCase(), n);
-  for (const o of d.orders) if (o.customer?.trim()) {
-    const k = o.customer.trim().toLowerCase();
-    if (!set.has(k)) set.set(k, o.customer.trim());
-  }
-  for (const s of d.sales) if (s.customer?.trim()) {
-    const k = s.customer.trim().toLowerCase();
-    if (!set.has(k)) set.set(k, s.customer.trim());
-  }
+  const add = (name?: string) => {
+    const trimmed = String(name || "").trim();
+    if (!trimmed || isCustomerDeleted(trimmed)) return;
+    const k = customerKey(trimmed);
+    if (!set.has(k)) set.set(k, trimmed);
+  };
+  for (const n of loadCustomers()) add(n);
+  for (const o of d.orders) add(o.customer);
+  for (const s of d.sales) add(s.customer);
+  for (const p of d.payments) add(p.customer);
   return Array.from(set.values()).sort((a, b) => a.localeCompare(b, "id"));
 }

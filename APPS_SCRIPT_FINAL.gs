@@ -35,6 +35,30 @@ const SHEET_HEADERS = {
   ]
 };
 
+const SHEET_FORMATS = {
+  "Bazar": {
+    text: [1, 2],
+    date: [3]
+  },
+  "Pesanan": {
+    text: [1, 2, 3, 4, 8, 9],
+    number: [5, 6, 7]
+  },
+  "Penjualan": {
+    text: [1, 2, 3, 4, 8, 9],
+    number: [5, 6, 7]
+  },
+  "Pengeluaran": {
+    text: [1, 2, 3],
+    number: [4, 5]
+  },
+  "Pembayaran Piutang": {
+    text: [1, 2, 3, 5, 6, 7],
+    number: [4],
+    datetime: [8]
+  }
+};
+
 function doPost(e) {
   try {
     const raw = e && e.postData && e.postData.contents ? e.postData.contents : "{}";
@@ -53,6 +77,7 @@ function doPost(e) {
       const sheet = getOrCreateSheet(ss, sheetName);
       setupHeader(sheet, headers);
       clearSheetData(sheet);
+      applyFormats(sheet, sheetName, headers.length);
 
       const rows = (sheets[sheetName] || []).map(function(row) {
         return normalizeRow(row, headers.length);
@@ -88,6 +113,7 @@ function getOrCreateSheet(ss, sheetName) {
 
 function setupHeader(sheet, headers) {
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   sheet.setFrozenRows(1);
 }
 
@@ -97,6 +123,24 @@ function clearSheetData(sheet) {
   if (lastRow > 1) {
     sheet.getRange(2, 1, lastRow - 1, maxColumns).clearContent();
   }
+}
+
+function applyFormats(sheet, sheetName, width) {
+  const maxRows = Math.max(sheet.getMaxRows() - 1, 1);
+  const rule = SHEET_FORMATS[sheetName] || {};
+  sheet.getRange(1, 1, sheet.getMaxRows(), width).setNumberFormat("@");
+
+  (rule.number || []).forEach(function(col) {
+    sheet.getRange(2, col, maxRows, 1).setNumberFormat("#,##0");
+  });
+
+  (rule.date || []).forEach(function(col) {
+    sheet.getRange(2, col, maxRows, 1).setNumberFormat("dd/mm/yyyy");
+  });
+
+  (rule.datetime || []).forEach(function(col) {
+    sheet.getRange(2, col, maxRows, 1).setNumberFormat("dd/mm/yyyy hh:mm");
+  });
 }
 
 function normalizeRow(row, width) {
