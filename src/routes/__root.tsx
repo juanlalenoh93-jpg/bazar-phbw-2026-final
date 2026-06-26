@@ -96,7 +96,7 @@ function RootComponent() {
         <main className="mx-auto max-w-5xl px-4 py-6">
           <Outlet />
         </main>
-        <div className="pointer-events-none fixed bottom-1 right-2 z-40 text-[10px] font-medium text-muted-foreground opacity-60">App created by : JJ</div>
+        <div className="pointer-events-none select-none fixed bottom-2 right-2 z-[9999] text-[10px] opacity-60">App created by : JJ</div>
         <Toaster richColors closeButton position="bottom-center" />
       </div>
     </QueryClientProvider>
