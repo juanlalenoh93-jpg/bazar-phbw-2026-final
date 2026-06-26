@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2, Store } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Store, ClipboardList } from "lucide-react";
 import { useDB, setDB, uid, fmtDate, fmtIDR, bazarStats } from "@/lib/storage";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,6 @@ import {
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { verifyPin } from "@/lib/pin";
@@ -22,11 +22,13 @@ export const Route = createFileRoute("/bazar/")({
 
 function BazarList() {
   const db = useDB();
+  const { isAdmin } = useAuth();
   const bazars = [...db.bazars].sort((a, b) => a.createdAt - b.createdAt);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saving, setSaving] = useState(false);
 
   const openCreate = () => {
     setEditId(null);
@@ -46,6 +48,8 @@ function BazarList() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Nama bazar wajib diisi");
+    if (saving) return;
+    setSaving(true);
     const newBazar = { id: uid(), name: name.trim(), date, createdAt: Date.now() };
     setDB((d) => {
       if (editId) {
@@ -60,6 +64,7 @@ function BazarList() {
     });
     toast.success(editId ? "Bazar diperbarui" : "Bazar ditambahkan");
     setOpen(false);
+    setSaving(false);
   };
 
   const bazarHasData = (id: string) =>
@@ -93,31 +98,33 @@ function BazarList() {
           <h2 className="text-2xl font-bold">Daftar Bazar</h2>
           <p className="text-sm text-muted-foreground">Kelola seluruh event bazar.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" /> Bazar Baru
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editId ? "Edit Bazar" : "Tambah Bazar"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={submit} className="space-y-3">
-              <div>
-                <Label>Nama Bazar</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bazar Natal 2026" />
-              </div>
-              <div>
-                <Label>Tanggal</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <DialogFooter>
-                <Button type="submit">Simpan</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {isAdmin && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreate}>
+                <Plus className="h-4 w-4" /> Bazar Baru
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Edit Bazar" : "Tambah Bazar"}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={submit} className="space-y-3">
+                <div>
+                  <Label>Nama Bazar</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bazar Natal 2026" />
+                </div>
+                <div>
+                  <Label>Tanggal</Label>
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={saving}>Simpan</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {bazars.length === 0 ? (
@@ -145,11 +152,23 @@ function BazarList() {
                       </div>
                     </div>
                   </Link>
-                  <div className="flex shrink-0 gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(b.id)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    {isAdmin && (
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(b.id)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
+                      </div>
+                    )}
+                    <Link
+                      to="/bazar/$id/rekapan"
+                      params={{ id: b.id }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+                    >
+                      <ClipboardList className="h-3.5 w-3.5" />
+                      Kirim Rekapan
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -193,11 +212,6 @@ function EmptyState() {
 export function ConfirmDelete({ onConfirm, label }: { onConfirm: () => void; label: string }) {
   return (
     <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Hapus {label}?</AlertDialogTitle>

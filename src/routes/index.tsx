@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, Camera, X, Trash2, Users, ChevronRight, LogOut } from "lucide-react";
+import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, Camera, X, Users, ChevronRight, LogOut, Download, Upload, Database, ShieldCheck } from "lucide-react";
 import { SheetSyncSettings } from "@/components/SheetSyncSettings";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useDB, computeSaldo, fmtIDR, useLogo, useRightLogo, setLogo, setRightLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding } from "@/lib/storage";
+import { useDB, computeSaldo, fmtIDR, useLogo, useRightLogo, setLogo, setRightLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding, downloadBackup, restoreFromBackup } from "@/lib/storage";
 import { exportAll, useSheetUrl } from "@/lib/sync";
-import { signOut, useAuth } from "@/lib/auth";
+import { signOut, useAuth, useAdminList, addAdmin, removeAdmin } from "@/lib/auth";
 import { APP_TITLE, WORKSPACE_ORG_LABEL, setMainHeader, setWorkspaceHeader, useMainHeader, useWorkspaceHeader } from "@/lib/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,7 @@ function Dashboard() {
   const db = useDB();
   const saldo = computeSaldo(db);
   const sheetUrl = useSheetUrl();
-  const { displayName } = useAuth();
+  const { displayName, isAdmin } = useAuth();
   const [hideSaldo, setHideSaldo] = useState(true);
   const [exporting, setExporting] = useState(false);
 
@@ -59,7 +59,12 @@ function Dashboard() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-foreground">{greeting(displayName)}</p>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm font-medium text-foreground">{greeting(displayName)}</p>
+          <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${isAdmin ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+            {isAdmin ? "ADMIN" : "VIEWER"}
+          </span>
+        </div>
         <div className="flex items-center gap-1">
           <AppSettings />
         </div>
@@ -116,10 +121,12 @@ function Dashboard() {
             disabled={exporting || !sheetUrl}
           >
             <RefreshCw className={`h-4 w-4 ${exporting ? "animate-spin" : ""}`} />
-            {exporting ? "Mengirim..." : "🔄 Ekspor Semua Data ke Google Sheets"}
+            {exporting ? "Mengirim data ke Sheets..." : "🔄 Ekspor Semua Data ke Google Sheets"}
           </Button>
         </div>
       </div>
+
+      <p className="text-center text-[10px] text-muted-foreground">App created by : JJ</p>
     </div>
   );
 }
@@ -130,7 +137,9 @@ type SettingsAction =
   | "right-logo"
   | "main-header"
   | "workspace-header"
-  | "customers";
+  | "customers"
+  | "backup-restore"
+  | "admin-list";
 
 const settingsLabels: Record<SettingsAction, string> = {
   "pin": "Ganti PIN",
@@ -139,17 +148,25 @@ const settingsLabels: Record<SettingsAction, string> = {
   "main-header": "Ubah Header Utama",
   "workspace-header": "Ubah Header Dalam Bazar",
   "customers": "Kelola Customer Terdaftar",
+  "backup-restore": "Backup & Restore Data",
+  "admin-list": "Kelola Admin",
 };
 
 function AppSettings() {
   const db = useDB();
   const customers = allCustomersGlobal(db);
+  const adminListData = useAdminList();
+  const { isAdmin } = useAuth();
+
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<SettingsAction | null>(null);
   const [pin, setPinInput] = useState("");
   const [verified, setVerified] = useState(false);
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [restoring, setRestoring] = useState(false);
+
   const currentMainHeader = useMainHeader();
   const currentWorkspaceHeader = useWorkspaceHeader();
   const [mainHeaderText, setMainHeaderText] = useState(currentMainHeader);
@@ -158,6 +175,7 @@ function AppSettings() {
   const rightLogo = useRightLogo();
   const leftFileRef = useRef<HTMLInputElement>(null);
   const rightFileRef = useRef<HTMLInputElement>(null);
+  const restoreFileRef = useRef<HTMLInputElement>(null);
 
   const resetAction = () => {
     setActive(null);
@@ -165,6 +183,7 @@ function AppSettings() {
     setVerified(false);
     setNext("");
     setConfirm("");
+    setNewAdminEmail("");
   };
 
   useEffect(() => {
@@ -180,6 +199,7 @@ function AppSettings() {
     setVerified(false);
     setNext("");
     setConfirm("");
+    setNewAdminEmail("");
   };
 
   const submitPin = (e: React.FormEvent) => {
@@ -253,6 +273,42 @@ function AppSettings() {
     toast.success("Customer dihapus dari daftar");
   };
 
+  const handleAddAdmin = () => {
+    const email = newAdminEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) return toast.error("Masukkan alamat email yang valid");
+    addAdmin(email);
+    toast.success(`${email} ditambahkan sebagai Admin`);
+    setNewAdminEmail("");
+  };
+
+  const handleRemoveAdmin = (email: string) => {
+    removeAdmin(email);
+    toast.success(`${email} dihapus dari daftar Admin`);
+  };
+
+  const handleBackup = () => {
+    downloadBackup();
+    toast.success("File backup sedang diunduh...");
+  };
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ok = window.confirm("⚠️ Restore akan MENGGANTIKAN semua data yang ada sekarang dengan data dari file backup. Lanjutkan?");
+    if (!ok) { e.target.value = ""; return; }
+    setRestoring(true);
+    try {
+      await restoreFromBackup(file);
+      toast.success("Data berhasil dipulihkan! Halaman akan diperbarui.");
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memulihkan data");
+    } finally {
+      setRestoring(false);
+      if (restoreFileRef.current) restoreFileRef.current.value = "";
+    }
+  };
+
   const logout = () => {
     const ok = window.confirm("Yakin ingin keluar dari akun ini?");
     if (!ok) return;
@@ -262,6 +318,44 @@ function AppSettings() {
 
   const renderActionContent = () => {
     if (!active) return null;
+
+    // backup-restore doesn't need PIN
+    if (active === "backup-restore") {
+      return (
+        <div className="space-y-3 rounded-xl border p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Database className="h-4 w-4" /> Backup & Restore Data
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Backup menyimpan seluruh data ke file .json. Restore memuat ulang dari file backup. Gunakan sebelum pindah perangkat atau clear cache.
+          </p>
+          <Button type="button" className="w-full gap-2" onClick={handleBackup}>
+            <Download className="h-4 w-4" /> Backup Data (Download .json)
+          </Button>
+          <div className="space-y-1">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2"
+              disabled={restoring}
+              onClick={() => restoreFileRef.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              {restoring ? "Memulihkan data..." : "Restore Data (Upload .json)"}
+            </Button>
+            <p className="text-[10px] text-amber-600">⚠️ Restore akan menggantikan semua data yang ada sekarang.</p>
+            <input
+              ref={restoreFileRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={handleRestore}
+            />
+          </div>
+          <DialogFooter><Button type="button" variant="outline" onClick={resetAction}>Kembali</Button></DialogFooter>
+        </div>
+      );
+    }
 
     if (!verified) {
       return (
@@ -384,16 +478,65 @@ function AppSettings() {
         </div>
       );
     }
+
+    if (active === "admin-list") {
+      return (
+        <div className="space-y-3 rounded-xl border p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <ShieldCheck className="h-4 w-4" /> Kelola Admin
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Admin punya akses penuh (tambah/edit/hapus). Viewer hanya bisa melihat data. Jika daftar kosong, semua pengguna adalah Admin.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="email@gmail.com"
+              value={newAdminEmail}
+              onChange={(e) => setNewAdminEmail(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddAdmin(); } }}
+              className="text-xs"
+            />
+            <Button size="sm" type="button" onClick={handleAddAdmin}>Tambah</Button>
+          </div>
+          {adminListData.length === 0 ? (
+            <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+              Daftar kosong — semua pengguna saat ini adalah Admin.
+            </div>
+          ) : (
+            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+              {adminListData.map((email) => (
+                <div key={email} className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
+                  <div className="truncate text-sm">{email}</div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => handleRemoveAdmin(email)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter><Button type="button" variant="outline" onClick={resetAction}>Kembali</Button></DialogFooter>
+        </div>
+      );
+    }
   };
 
-  const menuItems: { action: SettingsAction; icon?: ReactNode }[] = [
+  const menuItems: { action: SettingsAction; icon?: ReactNode; adminOnly?: boolean }[] = [
     { action: "pin" },
     { action: "left-logo" },
     { action: "right-logo" },
     { action: "main-header" },
     { action: "workspace-header" },
     { action: "customers", icon: <Users className="h-4 w-4" /> },
+    { action: "backup-restore", icon: <Database className="h-4 w-4" /> },
+    { action: "admin-list", icon: <ShieldCheck className="h-4 w-4" />, adminOnly: true },
   ];
+
+  const visibleMenuItems = menuItems.filter((m) => !m.adminOnly || isAdmin);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) resetAction(); }}>
@@ -405,7 +548,7 @@ function AppSettings() {
         <div className="space-y-3">
           {!active ? (
             <div className="space-y-2">
-              {menuItems.map(({ action, icon }) => (
+              {visibleMenuItems.map(({ action, icon }) => (
                 <button
                   key={action}
                   type="button"

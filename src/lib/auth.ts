@@ -6,17 +6,26 @@ export type AppUser = {
   picture?: string;
 };
 
+export type UserRole = "admin" | "viewer";
+
 export type AuthState = {
   loading: boolean;
   session: { user: AppUser } | null;
   user: AppUser | null;
   displayName: string;
+  role: UserRole;
+  isAdmin: boolean;
 };
 
 const AUTH_KEY = "phbw-2026-google-user-v1";
+const ADMIN_LIST_KEY = "phbw-2026-admin-list-v1";
+
 let user: AppUser | null = null;
 let loaded = false;
 const listeners = new Set<() => void>();
+
+let adminList: string[] | null = null;
+const adminListeners = new Set<() => void>();
 
 function notify() {
   listeners.forEach((listener) => listener());
@@ -49,6 +58,65 @@ export function setAuthUser(nextUser: AppUser | null) {
   notify();
 }
 
+// ---- Role / Admin System ----
+
+function loadAdminList(): string[] {
+  if (typeof window === "undefined") return [];
+  if (adminList !== null) return adminList;
+  try {
+    adminList = JSON.parse(localStorage.getItem(ADMIN_LIST_KEY) || "[]");
+  } catch {
+    adminList = [];
+  }
+  return adminList!;
+}
+
+function saveAdminList() {
+  if (typeof window !== "undefined")
+    localStorage.setItem(ADMIN_LIST_KEY, JSON.stringify(adminList || []));
+  adminListeners.forEach((l) => l());
+  listeners.forEach((l) => l());
+}
+
+export function getUserRole(email?: string): UserRole {
+  if (!email) return "viewer";
+  const list = loadAdminList();
+  if (list.length === 0) return "admin";
+  return list.includes(email.toLowerCase().trim()) ? "admin" : "viewer";
+}
+
+export function getAdminList(): string[] {
+  return loadAdminList();
+}
+
+export function addAdmin(email: string) {
+  loadAdminList();
+  const e = email.toLowerCase().trim();
+  if (!e) return;
+  if (!adminList!.includes(e)) {
+    adminList = [...adminList!, e];
+    saveAdminList();
+  }
+}
+
+export function removeAdmin(email: string) {
+  loadAdminList();
+  const e = email.toLowerCase().trim();
+  adminList = (adminList || []).filter((x) => x !== e);
+  saveAdminList();
+}
+
+export function useAdminList(): string[] {
+  return useSyncExternalStore(
+    (cb) => {
+      adminListeners.add(cb);
+      return () => adminListeners.delete(cb);
+    },
+    () => loadAdminList(),
+    () => [],
+  );
+}
+
 export function useAuth(): AuthState {
   const currentUser = useSyncExternalStore(
     (cb) => {
@@ -59,11 +127,14 @@ export function useAuth(): AuthState {
     () => null,
   );
 
+  const role = getUserRole(currentUser?.email);
   return {
     loading: false,
     session: currentUser ? { user: currentUser } : null,
     user: currentUser,
     displayName: currentUser?.name || "Panitia",
+    role,
+    isAdmin: role === "admin",
   };
 }
 

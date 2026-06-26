@@ -18,6 +18,7 @@ import { Route as PiutangIndexRouteImport } from './routes/piutang.index'
 import { Route as BazarIndexRouteImport } from './routes/bazar.index'
 import { Route as PiutangCustomerRouteImport } from './routes/piutang.$customer'
 import { Route as BazarIdRouteImport } from './routes/bazar.$id'
+import { Route as BazarIdRekapanRouteImport } from './routes/bazar.$id.rekapan'
 
 const SaldoRoute = SaldoRouteImport.update({
   id: '/saldo',
@@ -64,6 +65,11 @@ const BazarIdRoute = BazarIdRouteImport.update({
   path: '/bazar/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BazarIdRekapanRoute = BazarIdRekapanRouteImport.update({
+  id: '/bazar/$id/rekapan',
+  path: '/bazar/$id/rekapan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/riwayat': typeof RiwayatRoute
   '/saldo': typeof SaldoRoute
   '/bazar/$id': typeof BazarIdRoute
+  '/bazar/$id/rekapan': typeof BazarIdRekapanRoute
   '/piutang/$customer': typeof PiutangCustomerRoute
   '/bazar/': typeof BazarIndexRoute
   '/piutang/': typeof PiutangIndexRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/riwayat': typeof RiwayatRoute
   '/saldo': typeof SaldoRoute
   '/bazar/$id': typeof BazarIdRoute
+  '/bazar/$id/rekapan': typeof BazarIdRekapanRoute
   '/piutang/$customer': typeof PiutangCustomerRoute
   '/bazar': typeof BazarIndexRoute
   '/piutang': typeof PiutangIndexRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/riwayat': typeof RiwayatRoute
   '/saldo': typeof SaldoRoute
   '/bazar/$id': typeof BazarIdRoute
+  '/bazar/$id/rekapan': typeof BazarIdRekapanRoute
   '/piutang/$customer': typeof PiutangCustomerRoute
   '/bazar/': typeof BazarIndexRoute
   '/piutang/': typeof PiutangIndexRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/riwayat'
     | '/saldo'
     | '/bazar/$id'
+    | '/bazar/$id/rekapan'
     | '/piutang/$customer'
     | '/bazar/'
     | '/piutang/'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/riwayat'
     | '/saldo'
     | '/bazar/$id'
+    | '/bazar/$id/rekapan'
     | '/piutang/$customer'
     | '/bazar'
     | '/piutang'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/riwayat'
     | '/saldo'
     | '/bazar/$id'
+    | '/bazar/$id/rekapan'
     | '/piutang/$customer'
     | '/bazar/'
     | '/piutang/'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   RiwayatRoute: typeof RiwayatRoute
   SaldoRoute: typeof SaldoRoute
   BazarIdRoute: typeof BazarIdRoute
+  BazarIdRekapanRoute: typeof BazarIdRekapanRoute
   PiutangCustomerRoute: typeof PiutangCustomerRoute
   BazarIndexRoute: typeof BazarIndexRoute
   PiutangIndexRoute: typeof PiutangIndexRoute
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BazarIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bazar/$id/rekapan': {
+      id: '/bazar/$id/rekapan'
+      path: '/bazar/$id/rekapan'
+      fullPath: '/bazar/$id/rekapan'
+      preLoaderRoute: typeof BazarIdRekapanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   RiwayatRoute: RiwayatRoute,
   SaldoRoute: SaldoRoute,
   BazarIdRoute: BazarIdRoute,
+  BazarIdRekapanRoute: BazarIdRekapanRoute,
   PiutangCustomerRoute: PiutangCustomerRoute,
   BazarIndexRoute: BazarIndexRoute,
   PiutangIndexRoute: PiutangIndexRoute,

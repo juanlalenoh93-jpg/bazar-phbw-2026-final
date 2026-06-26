@@ -15,7 +15,7 @@ export type MenuItem = {
   price: number;
   qty: number;
   createdAt?: number;
-  cost?: number; // Harga Modal (HPP) per porsi
+  cost?: number;
 };
 
 export type OrderItem = { menuId: string; qty: number };
@@ -36,7 +36,7 @@ export type SaleItem = {
   name: string;
   price: number;
   qty: number;
-  cost?: number; // snapshot HPP saat penjualan
+  cost?: number;
 };
 export type Sale = {
   id: string;
@@ -46,7 +46,7 @@ export type Sale = {
   items: SaleItem[];
   total: number;
   method: "cash" | "transfer";
-  paid: number; // initial paid
+  paid: number;
   proof?: string;
   createdAt: number;
   note?: string;
@@ -66,7 +66,7 @@ export type PiutangPayment = {
   saleId: string;
   bazarId: string;
   customer: string;
-  menuName: string; // ringkasan menu sale
+  menuName: string;
   amount: number;
   method: "cash" | "transfer";
   proof?: string;
@@ -127,13 +127,11 @@ export function setDB(updater: (d: DB) => DB | void) {
   load();
   const next = updater(db);
   if (next) db = next;
-  // Always produce a NEW top-level reference so useSyncExternalStore
-  // notices the change even for in-place mutations.
   db = { ...db };
   save();
 }
 
-// ------- Logo (header) persisted separately -------
+// ------- Logo (header) -------
 const LOGO_KEY = "phbw-2026-logo-v1";
 let logo: string | null = null;
 let logoLoaded = false;
@@ -172,7 +170,7 @@ export function useLogo(): string | null {
   );
 }
 
-// ------- Right logo (header) persisted separately -------
+// ------- Right logo -------
 const RIGHT_LOGO_KEY = "phbw-2026-right-logo-v1";
 let rightLogo: string | null = null;
 let rightLogoLoaded = false;
@@ -289,7 +287,6 @@ export function bazarStats(d: DB, bazarId: string) {
   const totalSales = sales.reduce((s, x) => s + x.total, 0);
   const totalExpense = expenses.reduce((s, x) => s + x.amount, 0);
   const totalPiutang = sales.reduce((s, x) => s + saleOutstanding(d, x.id), 0);
-  // Keuntungan bersih = sum((harga jual - harga modal) * qty) - pengeluaran
   const grossProfit = sales.reduce((s, x) => {
     return s + x.items.reduce((ss, it) => ss + ((it.price - (it.cost || 0)) * it.qty), 0);
   }, 0);
@@ -315,7 +312,6 @@ export function bazarStats(d: DB, bazarId: string) {
   };
 }
 
-// Hitung qty terjual per menu
 export function menuSoldQty(d: DB, menuId: string): number {
   let total = 0;
   for (const s of d.sales) {
@@ -326,11 +322,10 @@ export function menuSoldQty(d: DB, menuId: string): number {
   return total;
 }
 
-// Qty yang sudah dipesan (order aktif, belum dijual) — untuk validasi stok
 export function menuPendingQty(d: DB, menuId: string, excludeOrderId?: string): number {
   let total = 0;
   for (const o of d.orders) {
-    if (o.soldAt) continue; // sudah dijual → masuk sales
+    if (o.soldAt) continue;
     if (excludeOrderId && o.id === excludeOrderId) continue;
     for (const it of o.items) {
       if (it.menuId === menuId) total += it.qty;
@@ -339,7 +334,6 @@ export function menuPendingQty(d: DB, menuId: string, excludeOrderId?: string): 
   return total;
 }
 
-// Sisa stok menu = qty awal - terjual - pending pesanan
 export function menuRemaining(d: DB, menuId: string, excludeOrderId?: string): number {
   const m = d.menus.find((x) => x.id === menuId);
   if (!m) return 0;
@@ -442,9 +436,6 @@ export function useCustomerMaster(): string[] {
   );
 }
 
-// Gabungan master + nama dari data — case-insensitive unique.
-// Nama yang dihapus dari daftar customer tetap tersimpan di riwayat transaksi,
-// tetapi tidak muncul lagi di dropdown sampai diketik/didaftarkan ulang.
 export function allCustomersGlobal(d: DB): string[] {
   const set = new Map<string, string>();
   const add = (name?: string) => {
@@ -458,4 +449,92 @@ export function allCustomersGlobal(d: DB): string[] {
   for (const s of d.sales) add(s.customer);
   for (const p of d.payments) add(p.customer);
   return Array.from(set.values()).sort((a, b) => a.localeCompare(b, "id"));
+}
+
+// =============== Backup / Restore ===============
+const BACKUP_KEYS = [
+  "phbw-2026-db-v1",
+  "phbw-2026-logo-v1",
+  "phbw-2026-right-logo-v1",
+  "phbw-2026-main-header-v1",
+  "phbw-2026-workspace-header-v1",
+  "phbw-2026-pin-v1",
+  "phbw-2026-customers-v1",
+  "phbw-2026-customers-deleted-v1",
+  "phbw-2026-sheet-url-v1",
+  "phbw-2026-admin-list-v1",
+];
+
+export function downloadBackup(): void {
+  if (typeof window === "undefined") return;
+  const raw: Record<string, string | null> = {};
+  for (const key of BACKUP_KEYS) {
+    raw[key] = localStorage.getItem(key);
+  }
+  const backup = {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    appName: "PHBW 2026",
+    raw,
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `phbw-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export function restoreFromBackup(file: File): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") { reject(new Error("Not browser")); return; }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Gagal membaca file"));
+    reader.onload = () => {
+      try {
+        const text = reader.result as string;
+        const backup = JSON.parse(text) as {
+          version?: number;
+          raw?: Record<string, string | null>;
+          db?: DB;
+        };
+
+        if (backup.version === 2 && backup.raw) {
+          for (const [key, value] of Object.entries(backup.raw)) {
+            if (value !== null && value !== undefined) {
+              localStorage.setItem(key, value);
+            } else {
+              localStorage.removeItem(key);
+            }
+          }
+        } else if (backup.db) {
+          localStorage.setItem(KEY, JSON.stringify(backup.db));
+        } else {
+          reject(new Error("Format backup tidak valid"));
+          return;
+        }
+
+        // Reset in-memory state so next read picks up fresh data
+        loaded = false;
+        logoLoaded = false;
+        rightLogoLoaded = false;
+        customerMaster = null;
+        deletedCustomerMaster = null;
+        db = initialDB;
+
+        listeners.forEach((l) => l());
+        logoListeners.forEach((l) => l());
+        rightLogoListeners.forEach((l) => l());
+        customerListeners.forEach((l) => l());
+
+        resolve();
+      } catch {
+        reject(new Error("File backup tidak valid atau rusak"));
+      }
+    };
+    reader.readAsText(file);
+  });
 }
