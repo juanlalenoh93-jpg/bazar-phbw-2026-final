@@ -5,9 +5,8 @@ import {
   HeadContent,
   Scripts,
   useRouterState,
-  useNavigate,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { AppHeader } from "@/components/AppHeader";
@@ -75,24 +74,20 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useAuth();
-  const navigate = useNavigate();
   const isAuthPage = pathname === "/auth";
   const showHeader = pathname === "/" && !!user;
+  const didRedirect = useRef(false);
 
-  // Redirect ke /auth kalau belum login, redirect ke / kalau sudah login dan buka /auth
   useEffect(() => {
     if (typeof window === "undefined") return;
     const storedUser = getAuthUser();
-    if (!storedUser && !isAuthPage) {
-      navigate({ to: "/auth", replace: true });
+    if (!storedUser && !isAuthPage && !didRedirect.current) {
+      didRedirect.current = true;
+      window.location.href = "/auth";
+    } else if (storedUser && isAuthPage) {
+      window.location.href = "/";
     }
   }, [user, pathname]);
-
-  useEffect(() => {
-    if (isAuthPage && !!user) {
-      navigate({ to: "/", replace: true });
-    }
-  }, [user, isAuthPage]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
@@ -113,4 +108,4 @@ function RootComponent() {
       </div>
     </QueryClientProvider>
   );
-  }
+}
