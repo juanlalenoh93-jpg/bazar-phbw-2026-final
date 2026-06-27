@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining, useLogo,
@@ -103,11 +103,21 @@ function BazarDetail() {
           <h2 className="truncate text-2xl font-bold">{bazar.name}</h2>
           <p className="text-sm text-muted-foreground">{fmtDate(new Date(bazar.date).getTime())}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2 rounded-full border bg-card px-2.5 py-1.5 shadow-sm">
-          <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full border bg-primary/10 text-primary">
-            {logo ? <img src={logo} alt="Logo Wilayah IV" className="h-full w-full object-cover" /> : <Church className="h-4 w-4" />}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex items-center gap-2 rounded-full border bg-card px-2.5 py-1.5 shadow-sm">
+            <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full border bg-primary/10 text-primary">
+              {logo ? <img src={logo} alt="Logo Wilayah IV" className="h-full w-full object-cover" /> : <Church className="h-4 w-4" />}
+            </div>
+            <span className="text-sm font-semibold text-foreground">{workspaceHeader}</span>
           </div>
-          <span className="text-sm font-semibold text-foreground">{workspaceHeader}</span>
+          <Link
+            to="/bazar/$id/rekapan"
+            params={{ id }}
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Kirim Rekapan
+          </Link>
         </div>
       </div>
 

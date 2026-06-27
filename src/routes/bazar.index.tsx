@@ -1,6 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2, Store, ClipboardList } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Store } from "lucide-react";
 import { useDB, setDB, uid, fmtDate, fmtIDR, bazarStats } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ export const Route = createFileRoute("/bazar/")({
 function BazarList() {
   const db = useDB();
   const { isAdmin } = useAuth();
-  const navigate = useNavigate();
   const bazars = [...db.bazars].sort((a, b) => a.createdAt - b.createdAt);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -151,22 +150,7 @@ function BazarList() {
                         <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
                       </>
                     )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                      onTouchEnd={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        navigate({ to: "/bazar/$id/rekapan", params: { id: b.id } });
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100"
-                    >
-                      <ClipboardList className="h-3.5 w-3.5" />
-                      Kirim Rekapan
-                    </button>
+
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
