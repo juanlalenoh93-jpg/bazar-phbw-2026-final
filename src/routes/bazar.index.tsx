@@ -135,7 +135,11 @@ function BazarList() {
           {bazars.map((b) => {
             const s = bazarStats(db, b.id);
             return (
-              <div key={b.id} className="rounded-2xl border bg-card p-4">
+              <div
+                key={b.id}
+                className="rounded-2xl border bg-card p-4 cursor-pointer"
+                onClick={() => navigate({ to: "/bazar/$id", params: { id: b.id } })}
+              >
                 <div className="mb-1 flex items-center justify-between gap-3">
                   <span className="font-semibold text-foreground">{b.name}</span>
                   <div className="flex shrink-0 items-center gap-1">
@@ -150,7 +154,6 @@ function BazarList() {
                     <button
                       type="button"
                       onClick={(e) => {
-                        e.preventDefault();
                         e.stopPropagation();
                         navigate({ to: "/bazar/$id/rekapan", params: { id: b.id } });
                       }}
@@ -161,21 +164,19 @@ function BazarList() {
                     </button>
                   </div>
                 </div>
-                <Link to="/bazar/$id" params={{ id: b.id }} className="block">
-                  <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
-                  <div className="mt-3 rounded-xl bg-muted/40 p-3 text-xs">
-                    <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-                      <FinanceLine label="Penjualan" value={s.totalSales} />
-                      <FinanceLine label="Pengeluaran" value={s.totalExpense} tone="bad" />
-                      <FinanceLine label="Piutang" value={s.totalPiutang} tone="warn" />
-                      <FinanceLine label="Keuntungan" value={s.profit} tone="good" />
-                    </div>
-                    <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 border-t pt-2 sm:grid-cols-2">
-                      <FinanceLine label="Cash" value={s.totalCash} />
-                      <FinanceLine label="Transfer" value={s.totalTransfer} />
-                    </div>
+                <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
+                <div className="mt-3 rounded-xl bg-muted/40 p-3 text-xs">
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                    <FinanceLine label="Penjualan" value={s.totalSales} />
+                    <FinanceLine label="Pengeluaran" value={s.totalExpense} tone="bad" />
+                    <FinanceLine label="Piutang" value={s.totalPiutang} tone="warn" />
+                    <FinanceLine label="Keuntungan" value={s.profit} tone="good" />
                   </div>
-                </Link>
+                  <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 border-t pt-2 sm:grid-cols-cols-2">
+                    <FinanceLine label="Cash" value={s.totalCash} />
+                    <FinanceLine label="Transfer" value={s.totalTransfer} />
+                  </div>
+                </div>
               </div>
             );
           })}
