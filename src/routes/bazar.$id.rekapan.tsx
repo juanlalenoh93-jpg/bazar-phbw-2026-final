@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, MessageCircle, Pencil } from "lucide-react";
+import { ArrowLeft, Copy, MessageCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDB, fmtIDR, fmtDate, saleOutstanding } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
@@ -157,6 +157,14 @@ function buildMessage(
     .replace(/\{KEUNTUNGAN\}/g, fmtIDR(data.keuntungan));
 }
 
+function isStandalone() {
+  if (typeof window === "undefined") return false;
+  const mq = window.matchMedia("(display-mode: standalone)");
+  if (mq.matches) return true;
+  const nav = window.navigator as typeof window.navigator & { standalone?: boolean };
+  return nav.standalone === true;
+}
+
 function RekapanPage() {
   const { id } = Route.useParams();
   const db = useDB();
@@ -197,8 +205,22 @@ function RekapanPage() {
     toast.success("Template direset ke default");
   };
 
-  const sendWA = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+  const waHref = `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  const handleWaClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isStandalone()) {
+      e.preventDefault();
+      window.location.href = waHref;
+    }
+  };
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      toast.success("Teks rekapan disalin");
+    } catch {
+      toast.error("Gagal menyalin teks");
+    }
   };
 
   return (
@@ -218,21 +240,33 @@ function RekapanPage() {
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={sendWA}
-        className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 active:scale-[0.98]"
-      >
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20">
-          <MessageCircle className="h-6 w-6" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-base font-semibold">Kirim Rekapan Bazar ke WA</div>
-          <div className="text-xs text-emerald-100/90">
-            {bazar.name} · {bazarDate}
+      <div className="space-y-3">
+        <a
+          href={waHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleWaClick}
+          className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 active:scale-[0.98]"
+        >
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20">
+            <MessageCircle className="h-6 w-6" />
           </div>
-        </div>
-      </button>
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-semibold">Kirim Rekapan Bazar ke WA</div>
+            <div className="text-xs text-emerald-100/90">
+              {bazar.name} · {bazarDate}
+            </div>
+          </div>
+        </a>
+
+        <Button
+          variant="outline"
+          className="w-full gap-2"
+          onClick={copyMessage}
+        >
+          <Copy className="h-4 w-4" /> Salin Teks Rekapan
+        </Button>
+      </div>
 
       <div className="rounded-2xl border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
