@@ -5,7 +5,7 @@ import {
   HeadContent,
   Scripts,
   useRouterState,
-  Navigate,
+  useNavigate,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -23,8 +23,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "PHBW 2026" },
       {
         name: "description",
-        content:
-          `Aplikasi manajemen keuangan bazar Panitia Hari Besar Wilayah 2026, ${ORGANIZATION_NAME}.`,
+        content: `Aplikasi manajemen keuangan bazar Panitia Hari Besar Wilayah 2026, ${ORGANIZATION_NAME}.`,
       },
       { property: "og:title", content: "PHBW 2026" },
       { name: "twitter:title", content: "PHBW 2026" },
@@ -76,9 +75,19 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAuthPage = pathname === "/auth";
   const showHeader = pathname === "/" && !!user;
-  const hasStoredUser = typeof window !== "undefined" && !!getAuthUser();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedUser = getAuthUser();
+    if (!storedUser && !isAuthPage) {
+      navigate({ to: "/auth", replace: true });
+    } else if (storedUser && isAuthPage) {
+      navigate({ to: "/", replace: true });
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
@@ -91,8 +100,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
-        {!user && !hasStoredUser && !isAuthPage && <Navigate to="/auth" replace />}
-        {user && isAuthPage && <Navigate to="/" replace />}
         {showHeader && <AppHeader />}
         <main className="mx-auto max-w-5xl px-4 py-6">
           <Outlet />
