@@ -79,15 +79,20 @@ function RootComponent() {
   const isAuthPage = pathname === "/auth";
   const showHeader = pathname === "/" && !!user;
 
+  // Redirect ke /auth kalau belum login, redirect ke / kalau sudah login dan buka /auth
   useEffect(() => {
     if (typeof window === "undefined") return;
     const storedUser = getAuthUser();
     if (!storedUser && !isAuthPage) {
       navigate({ to: "/auth", replace: true });
-    } else if (storedUser && isAuthPage) {
+    }
+  }, [user, pathname]);
+
+  useEffect(() => {
+    if (isAuthPage && !!user) {
       navigate({ to: "/", replace: true });
     }
-  }, [pathname]);
+  }, [user, isAuthPage]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
@@ -108,4 +113,4 @@ function RootComponent() {
       </div>
     </QueryClientProvider>
   );
-}
+  }
