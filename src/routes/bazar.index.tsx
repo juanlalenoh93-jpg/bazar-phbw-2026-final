@@ -135,30 +135,32 @@ function BazarList() {
             const s = bazarStats(db, b.id);
             return (
               <div key={b.id} className="rounded-2xl border bg-card p-4">
-                {isAdmin && (
-                  <div className="mb-2 flex justify-end gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(b.id)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
-                  </div>
-                )}
-                <Link to="/bazar/$id" params={{ id: b.id }} className="block">
-                  <div className="font-semibold text-foreground">{b.name}</div>
-                  <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
-                  <div className="mt-3 rounded-xl bg-muted/40 p-3 text-xs">
-                    <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-                      <FinanceLine label="Penjualan" value={s.totalSales} />
-                      <FinanceLine label="Pengeluaran" value={s.totalExpense} tone="bad" />
-                      <FinanceLine label="Piutang" value={s.totalPiutang} tone="warn" />
-                      <FinanceLine label="Keuntungan" value={s.profit} tone="good" />
+                <div className="flex items-start justify-between gap-3">
+                  <Link to="/bazar/$id" params={{ id: b.id }} className="min-w-0 flex-1">
+                    <div className="font-semibold text-foreground">{b.name}</div>
+                    <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
+                    <div className="mt-3 rounded-xl bg-muted/40 p-3 text-xs">
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                        <FinanceLine label="Penjualan" value={s.totalSales} />
+                        <FinanceLine label="Pengeluaran" value={s.totalExpense} tone="bad" />
+                        <FinanceLine label="Piutang" value={s.totalPiutang} tone="warn" />
+                        <FinanceLine label="Keuntungan" value={s.profit} tone="good" />
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 border-t pt-2 sm:grid-cols-2">
+                        <FinanceLine label="Cash" value={s.totalCash} />
+                        <FinanceLine label="Transfer" value={s.totalTransfer} />
+                      </div>
                     </div>
-                    <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 border-t pt-2 sm:grid-cols-2">
-                      <FinanceLine label="Cash" value={s.totalCash} />
-                      <FinanceLine label="Transfer" value={s.totalTransfer} />
+                  </Link>
+                  {isAdmin && (
+                    <div className="flex shrink-0 gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(b.id)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
                     </div>
-                  </div>
-                </Link>
+                  )}
+                </div>
               </div>
             );
           })}
