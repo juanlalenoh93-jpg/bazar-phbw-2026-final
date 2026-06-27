@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining, useLogo,
@@ -9,6 +9,7 @@ import {
 import { ORGANIZATION_NAME, useWorkspaceHeader } from "@/lib/branding";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/bazar/$id")({
   loader: ({ params }) => ({ id: params.id }),
 });
 
-const TAB_LIST = ["menu", "pesanan", "penjualan", "pengeluaran"] as const;
+const TAB_LIST = ["menu", "pesanan", "penjualan", "pengeluaran", "rekapan"] as const;
 type TabKey = (typeof TAB_LIST)[number];
 
 function BazarDetail() {
@@ -129,11 +130,12 @@ function BazarDetail() {
 
       <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} className="space-y-4">
-          <TabsList className="grid h-10 w-full grid-cols-4">
+          <TabsList className="grid h-10 w-full grid-cols-5">
             <TabsTrigger value="menu" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Menu</TabsTrigger>
             <TabsTrigger value="pesanan" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Pesanan</TabsTrigger>
             <TabsTrigger value="penjualan" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Penjualan</TabsTrigger>
             <TabsTrigger value="pengeluaran" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Pengeluaran</TabsTrigger>
+            <TabsTrigger value="rekapan" className="truncate whitespace-nowrap px-1 text-[10px] font-medium sm:text-xs">Rekapan</TabsTrigger>
           </TabsList>
 
           <TabsContent value="menu">
@@ -147,6 +149,9 @@ function BazarDetail() {
           </TabsContent>
           <TabsContent value="pengeluaran">
             <PengeluaranTab bazarId={id} expenses={expenses} isAdmin={isAdmin} />
+          </TabsContent>
+          <TabsContent value="rekapan">
+            <RekapanTab bazarId={id} bazarName={bazar.name} bazarDate={bazar.date} />
           </TabsContent>
         </Tabs>
       </div>
@@ -1053,6 +1058,94 @@ function Empty({ text }: { text: string }) {
     <div className="rounded-xl border-2 border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground">
       <Receipt className="mx-auto mb-2 h-6 w-6" />
       {text}
+    </div>
+  );
+}
+
+const REKAP_TEMPLATE_KEY = "phbw-2026-rekap-template-v1";
+const DEFAULT_TEMPLATE = `Shallom..\nBerikut kami sampaikan Rekapan {BAZAR_NAME} PHBW 2026 ({BAZAR_DATE}):\n\nPENGELUARAN\nTotal Pengeluaran : {TOTAL_PENGELUARAN}\n\nPESANAN\nJumlah Customer : {JUMLAH_CUSTOMER_PESANAN} orang\n\nJumlah Menu Pesanan:\n{LIST_MENU_PESANAN}\n\nPesanan Dialihkan : {DIALIHKAN}\n\nPENJUALAN\nJumlah Customer : {JUMLAH_CUSTOMER_PENJUALAN} orang\n\nJumlah Menu Penjualan:\n{LIST_MENU_PENJUALAN}\n\nJumlah Pendapatan Penjualan : {TOTAL_PENJUALAN}\nLunas : {TOTAL_LUNAS}\nPiutang : {TOTAL_PIUTANG}\n\nKEUNTUNGAN BERSIH\n{KEUNTUNGAN}\n\nDemikian rekapan {BAZAR_NAME} PHBW 2026 ({BAZAR_DATE}) yang dapat kami sampaikan.\nTuhan Yesus Memberkati...`;
+const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function alphaLabel(i: number) { return ALPHA[i] ?? String(i + 1); }
+function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
+  const bazarOrders = db.orders.filter((o) => o.bazarId === bazarId);
+  const bazarSales = db.sales.filter((s) => s.bazarId === bazarId);
+  const bazarExpenses = db.expenses.filter((e) => e.bazarId === bazarId);
+  const totalPengeluaran = bazarExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const pesananCustomers = new Set<string>();
+  const pesananMenuMap = new Map<string, number>();
+  for (const order of bazarOrders) {
+    pesananCustomers.add(order.customer.trim().toLowerCase());
+    const soldByMenu: Record<string, number> = {};
+    for (const sale of db.sales.filter((s) => s.orderId === order.id)) {
+      for (const item of sale.items) { soldByMenu[item.menuId] = (soldByMenu[item.menuId] || 0) + item.qty; }
+    }
+    const allMenuIds = new Set([...order.items.map((i) => i.menuId), ...Object.keys(soldByMenu)]);
+    for (const menuId of allMenuIds) {
+      const remaining = order.items.find((i) => i.menuId === menuId)?.qty || 0;
+      const sold = soldByMenu[menuId] || 0;
+      const originalQty = remaining + sold;
+      if (originalQty <= 0) continue;
+      const menu = db.menus.find((m) => m.id === menuId);
+      const name = menu?.name || menuId;
+      pesananMenuMap.set(name, (pesananMenuMap.get(name) || 0) + originalQty);
+    }
+  }
+  const dialihkan = bazarOrders.filter((o) => o.originalCustomer && o.originalCustomer !== o.customer).map((o) => `${o.originalCustomer} → ${o.customer}`);
+  const penjualanCustomers = new Set<string>();
+  const penjualanMenuMap = new Map<string, { qty: number; total: number }>();
+  for (const sale of bazarSales) {
+    penjualanCustomers.add(sale.customer.trim().toLowerCase());
+    for (const item of sale.items) {
+      const prev = penjualanMenuMap.get(item.name) || { qty: 0, total: 0 };
+      penjualanMenuMap.set(item.name, { qty: prev.qty + item.qty, total: prev.total + item.price * item.qty });
+    }
+  }
+  const totalPenjualan = bazarSales.reduce((sum, s) => sum + s.total, 0);
+  const totalPiutang = bazarSales.reduce((sum, s) => sum + saleOutstanding(db, s.id), 0);
+  const totalLunas = totalPenjualan - totalPiutang;
+  const grossProfit = bazarSales.reduce((s, x) => s + x.items.reduce((ss, it) => ss + (it.price - (it.cost || 0)) * it.qty, 0), 0);
+  const keuntungan = grossProfit - totalPengeluaran;
+  return { totalPengeluaran, pesananCustomers: pesananCustomers.size, pesananMenus: Array.from(pesananMenuMap.entries()), dialihkan, penjualanCustomers: penjualanCustomers.size, penjualanMenus: Array.from(penjualanMenuMap.entries()), totalPenjualan, totalLunas, totalPiutang, keuntungan };
+}
+function buildMessage(template: string, data: ReturnType<typeof computeRekap>, bazarName: string, bazarDate: string) {
+  const listPesanan = data.pesananMenus.length ? data.pesananMenus.map(([name, qty], i) => `${alphaLabel(i)}. ${name} - ${qty}x`).join("\n") : "Belum ada pesanan";
+  const listPenjualan = data.penjualanMenus.length ? data.penjualanMenus.map(([name, { qty, total }], i) => `${alphaLabel(i)}. ${name} - ${qty}x - ${fmtIDR(total)}`).join("\n") : "Belum ada penjualan";
+  const dialihkanText = data.dialihkan.length ? data.dialihkan.join(", ") : "Tidak Ada";
+  return template.replace(/\{BAZAR_NAME\}/g, bazarName).replace(/\{BAZAR_DATE\}/g, bazarDate).replace(/\{TOTAL_PENGELUARAN\}/g, fmtIDR(data.totalPengeluaran)).replace(/\{JUMLAH_CUSTOMER_PESANAN\}/g, String(data.pesananCustomers)).replace(/\{LIST_MENU_PESANAN\}/g, listPesanan).replace(/\{DIALIHKAN\}/g, dialihkanText).replace(/\{JUMLAH_CUSTOMER_PENJUALAN\}/g, String(data.penjualanCustomers)).replace(/\{LIST_MENU_PENJUALAN\}/g, listPenjualan).replace(/\{TOTAL_PENJUALAN\}/g, fmtIDR(data.totalPenjualan)).replace(/\{TOTAL_LUNAS\}/g, fmtIDR(data.totalLunas)).replace(/\{TOTAL_PIUTANG\}/g, fmtIDR(data.totalPiutang)).replace(/\{KEUNTUNGAN\}/g, fmtIDR(data.keuntungan));
+}
+function RekapanTab({ bazarId, bazarName, bazarDate }: { bazarId: string; bazarName: string; bazarDate: string }) {
+  const db = useDB();
+  const [editingTpl, setEditingTpl] = useState(false);
+  const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
+  useEffect(() => { const saved = localStorage.getItem(REKAP_TEMPLATE_KEY); if (saved) setTemplate(saved); }, []);
+  const data = useMemo(() => computeRekap(db, bazarId), [db, bazarId]);
+  const bazarDateFmt = fmtDate(new Date(bazarDate).getTime());
+  const message = buildMessage(template, data, bazarName, bazarDateFmt);
+  const copyMessage = async () => { try { await navigator.clipboard.writeText(message); toast.success("Teks rekapan disalin"); } catch { toast.error("Gagal menyalin teks"); } };
+  const handleSendRekap = () => { navigator.clipboard?.writeText(message).catch(() => undefined); window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank"); };
+  const saveTemplate = () => { localStorage.setItem(REKAP_TEMPLATE_KEY, template); setEditingTpl(false); toast.success("Template disimpan"); };
+  const resetTemplate = () => { setTemplate(DEFAULT_TEMPLATE); localStorage.removeItem(REKAP_TEMPLATE_KEY); toast.success("Template direset"); };
+  return (
+    <div className="space-y-4">
+      <button type="button" onClick={handleSendRekap} className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg transition hover:bg-emerald-700 active:scale-[0.98]">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20"><MessageCircle className="h-6 w-6" /></div>
+        <div className="min-w-0 flex-1"><div className="text-base font-semibold">Kirim Rekapan ke WA</div><div className="text-xs text-emerald-100/90">{bazarName} · {bazarDateFmt}</div></div>
+      </button>
+      <Button variant="outline" className="w-full gap-2" onClick={copyMessage}><Copy className="h-4 w-4" /> Salin Teks Rekapan</Button>
+      <div className="rounded-2xl border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm font-semibold">Format Pesan WA</div>
+          <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs"><Pencil className="h-3.5 w-3.5" /> {editingTpl ? "Tutup" : "Edit"}</Button>
+        </div>
+        {editingTpl ? (
+          <div className="space-y-2">
+            <Textarea rows={16} value={template} onChange={(e) => setTemplate(e.target.value)} className="font-mono text-xs" />
+            <div className="flex gap-2"><Button size="sm" onClick={saveTemplate}>Simpan</Button><Button size="sm" variant="outline" onClick={resetTemplate}>Reset Default</Button></div>
+          </div>
+        ) : (
+          <pre className="whitespace-pre-wrap rounded-xl bg-muted/50 p-4 text-xs leading-relaxed text-foreground/80">{message}</pre>
+        )}
+      </div>
     </div>
   );
 }
