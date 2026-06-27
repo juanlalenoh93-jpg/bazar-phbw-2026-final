@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Plus, Pencil, Trash2, Store, ClipboardList } from "lucide-react";
 import { useDB, setDB, uid, fmtDate, fmtIDR, bazarStats } from "@/lib/storage";
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/bazar/")({
 function BazarList() {
   const db = useDB();
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const bazars = [...db.bazars].sort((a, b) => a.createdAt - b.createdAt);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -146,15 +147,18 @@ function BazarList() {
                         <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
                       </>
                     )}
-                    <Link
-                      to="/bazar/$id/rekapan"
-                      params={{ id: b.id }}
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate({ to: "/bazar/$id/rekapan", params: { id: b.id } });
+                      }}
                       className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100"
                     >
                       <ClipboardList className="h-3.5 w-3.5" />
                       Kirim Rekapan
-                    </Link>
+                    </button>
                   </div>
                 </div>
                 <Link to="/bazar/$id" params={{ id: b.id }} className="block">
