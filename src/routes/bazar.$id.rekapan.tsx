@@ -45,7 +45,10 @@ Demikian rekapan {BAZAR_NAME} PHBW 2026 ({BAZAR_DATE}) yang dapat kami sampaikan
 Tuhan Yesus Memberkati...`;
 
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-function alphaLabel(i: number) { return ALPHA[i] ?? String(i + 1); }
+
+function alphaLabel(i: number) {
+  return ALPHA[i] ?? String(i + 1);
+}
 
 function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
   const bazarOrders = db.orders.filter((o) => o.bazarId === bazarId);
@@ -59,23 +62,30 @@ function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
 
   for (const order of bazarOrders) {
     pesananCustomers.add(order.customer.trim().toLowerCase());
+
     const soldByMenu: Record<string, number> = {};
+
     for (const sale of db.sales.filter((s) => s.orderId === order.id)) {
       for (const item of sale.items) {
         soldByMenu[item.menuId] = (soldByMenu[item.menuId] || 0) + item.qty;
       }
     }
+
     const allMenuIds = new Set([
       ...order.items.map((i) => i.menuId),
       ...Object.keys(soldByMenu),
     ]);
+
     for (const menuId of allMenuIds) {
       const remaining = order.items.find((i) => i.menuId === menuId)?.qty || 0;
       const sold = soldByMenu[menuId] || 0;
       const originalQty = remaining + sold;
+
       if (originalQty <= 0) continue;
+
       const menu = db.menus.find((m) => m.id === menuId);
       const name = menu?.name || menuId;
+
       pesananMenuMap.set(name, (pesananMenuMap.get(name) || 0) + originalQty);
     }
   }
@@ -89,8 +99,10 @@ function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
 
   for (const sale of bazarSales) {
     penjualanCustomers.add(sale.customer.trim().toLowerCase());
+
     for (const item of sale.items) {
       const prev = penjualanMenuMap.get(item.name) || { qty: 0, total: 0 };
+
       penjualanMenuMap.set(item.name, {
         qty: prev.qty + item.qty,
         total: prev.total + item.price * item.qty,
@@ -99,13 +111,22 @@ function computeRekap(db: ReturnType<typeof useDB>, bazarId: string) {
   }
 
   const totalPenjualan = bazarSales.reduce((sum, s) => sum + s.total, 0);
-  const totalPiutang = bazarSales.reduce((sum, s) => sum + saleOutstanding(db, s.id), 0);
+  const totalPiutang = bazarSales.reduce(
+    (sum, s) => sum + saleOutstanding(db, s.id),
+    0,
+  );
   const totalLunas = totalPenjualan - totalPiutang;
 
   const grossProfit = bazarSales.reduce(
-    (s, x) => s + x.items.reduce((ss, it) => ss + (it.price - (it.cost || 0)) * it.qty, 0),
+    (s, x) =>
+      s +
+      x.items.reduce(
+        (ss, it) => ss + (it.price - (it.cost || 0)) * it.qty,
+        0,
+      ),
     0,
   );
+
   const keuntungan = grossProfit - totalPengeluaran;
 
   return {
@@ -129,12 +150,17 @@ function buildMessage(
   bazarDate: string,
 ) {
   const listPesanan = data.pesananMenus.length
-    ? data.pesananMenus.map(([name, qty], i) => `${alphaLabel(i)}. ${name} - ${qty}x`).join("\n")
+    ? data.pesananMenus
+        .map(([name, qty], i) => `${alphaLabel(i)}. ${name} - ${qty}x`)
+        .join("\n")
     : "Belum ada pesanan";
 
   const listPenjualan = data.penjualanMenus.length
     ? data.penjualanMenus
-        .map(([name, { qty, total }], i) => `${alphaLabel(i)}. ${name} - ${qty}x - ${fmtIDR(total)}`)
+        .map(
+          ([name, { qty, total }], i) =>
+            `${alphaLabel(i)}. ${name} - ${qty}x - ${fmtIDR(total)}`,
+        )
         .join("\n")
     : "Belum ada penjualan";
 
@@ -174,9 +200,13 @@ function RekapanPage() {
   if (!bazar) {
     return (
       <div className="space-y-4">
-        <Link to="/bazar" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+        <Link
+          to="/bazar"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground"
+        >
           <ArrowLeft className="h-4 w-4" /> Daftar Bazar
         </Link>
+
         <p className="text-muted-foreground">Bazar tidak ditemukan.</p>
       </div>
     );
@@ -184,6 +214,7 @@ function RekapanPage() {
 
   const bazarDate = fmtDate(new Date(bazar.date).getTime());
   const message = buildMessage(template, data, bazar.name, bazarDate);
+  const encodedMessage = encodeURIComponent(message);
 
   const saveTemplate = () => {
     localStorage.setItem(REKAP_TEMPLATE_KEY, template);
@@ -206,10 +237,7 @@ function RekapanPage() {
     }
   };
 
-  const encodedMessage = encodeURIComponent(message);
-
   const handleSendRekap = () => {
-    // Salin dulu secara diam-diam sebagai cadangan jika WA tidak terbuka
     navigator.clipboard?.writeText(message).catch(() => undefined);
     window.location.href = `https://wa.me/?text=${encodedMessage}`;
   };
@@ -240,19 +268,18 @@ function RekapanPage() {
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20">
             <MessageCircle className="h-6 w-6" />
           </div>
+
           <div className="min-w-0 flex-1">
-            <div className="text-base font-semibold">Kirim Rekapan Bazar ke WA</div>
+            <div className="text-base font-semibold">
+              Kirim Rekapan Bazar ke WA
+            </div>
             <div className="text-xs text-emerald-100/90">
               {bazar.name} · {bazarDate}
             </div>
           </div>
         </button>
 
-        <Button
-          variant="outline"
-          className="w-full gap-2"
-          onClick={copyMessage}
-        >
+        <Button variant="outline" className="w-full gap-2" onClick={copyMessage}>
           <Copy className="h-4 w-4" /> Salin Teks Rekapan
         </Button>
       </div>
@@ -260,6 +287,7 @@ function RekapanPage() {
       <div className="rounded-2xl border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-semibold">Format Pesan WA</div>
+
           <Button
             size="sm"
             variant="ghost"
@@ -273,28 +301,50 @@ function RekapanPage() {
         {editingTpl ? (
           <div className="space-y-2">
             <p className="text-[10px] text-muted-foreground leading-relaxed">
-              Token: <code className="rounded bg-muted px-1">{"{BAZAR_NAME}"}</code>{" "}
+              Token:{" "}
+              <code className="rounded bg-muted px-1">{"{BAZAR_NAME}"}</code>{" "}
               <code className="rounded bg-muted px-1">{"{BAZAR_DATE}"}</code>{" "}
-              <code className="rounded bg-muted px-1">{"{TOTAL_PENGELUARAN}"}</code>{" "}
-              <code className="rounded bg-muted px-1">{"{JUMLAH_CUSTOMER_PESANAN}"}</code>{" "}
-              <code className="rounded bg-muted px-1">{"{LIST_MENU_PESANAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">
+                {"{TOTAL_PENGELUARAN}"}
+              </code>{" "}
+              <code className="rounded bg-muted px-1">
+                {"{JUMLAH_CUSTOMER_PESANAN}"}
+              </code>{" "}
+              <code className="rounded bg-muted px-1">
+                {"{LIST_MENU_PESANAN}"}
+              </code>{" "}
               <code className="rounded bg-muted px-1">{"{DIALIHKAN}"}</code>{" "}
-              <code className="rounded bg-muted px-1">{"{JUMLAH_CUSTOMER_PENJUALAN}"}</code>{" "}
-              <code className="rounded bg-muted px-1">{"{LIST_MENU_PENJUALAN}"}</code>{" "}
-              <code className="rounded bg-muted px-1">{"{TOTAL_PENJUALAN}"}</code>{" "}
+              <code className="rounded bg-muted px-1">
+                {"{JUMLAH_CUSTOMER_PENJUALAN}"}
+              </code>{" "}
+              <code className="rounded bg-muted px-1">
+                {"{LIST_MENU_PENJUALAN}"}
+              </code>{" "}
+              <code className="rounded bg-muted px-1">
+                {"{TOTAL_PENJUALAN}"}
+              </code>{" "}
               <code className="rounded bg-muted px-1">{"{TOTAL_LUNAS}"}</code>{" "}
-              <code className="rounded bg-muted px-1">{"{TOTAL_PIUTANG}"}</code>{" "}
+              <code className="rounded bg-muted px-1">
+                {"{TOTAL_PIUTANG}"}
+              </code>{" "}
               <code className="rounded bg-muted px-1">{"{KEUNTUNGAN}"}</code>
             </p>
+
             <Textarea
               rows={16}
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
               className="font-mono text-xs"
             />
+
             <div className="flex gap-2">
-              <Button size="sm" onClick={saveTemplate}>Simpan</Button>
-              <Button size="sm" variant="outline" onClick={resetTemplate}>Reset Default</Button>
+              <Button size="sm" onClick={saveTemplate}>
+                Simpan
+              </Button>
+
+              <Button size="sm" variant="outline" onClick={resetTemplate}>
+                Reset Default
+              </Button>
             </div>
           </div>
         ) : (
