@@ -157,14 +157,6 @@ function buildMessage(
     .replace(/\{KEUNTUNGAN\}/g, fmtIDR(data.keuntungan));
 }
 
-function isStandalone() {
-  if (typeof window === "undefined") return false;
-  const mq = window.matchMedia("(display-mode: standalone)");
-  if (mq.matches) return true;
-  const nav = window.navigator as typeof window.navigator & { standalone?: boolean };
-  return nav.standalone === true;
-}
-
 function RekapanPage() {
   const { id } = Route.useParams();
   const db = useDB();
@@ -205,15 +197,6 @@ function RekapanPage() {
     toast.success("Template direset ke default");
   };
 
-  const waHref = `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-  const handleWaClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isStandalone()) {
-      e.preventDefault();
-      window.location.href = waHref;
-    }
-  };
-
   const copyMessage = async () => {
     try {
       await navigator.clipboard.writeText(message);
@@ -221,6 +204,14 @@ function RekapanPage() {
     } catch {
       toast.error("Gagal menyalin teks");
     }
+  };
+
+  const encodedMessage = encodeURIComponent(message);
+
+  const handleSendRekap = () => {
+    // Salin dulu secara diam-diam sebagai cadangan jika WA tidak terbuka
+    navigator.clipboard?.writeText(message).catch(() => undefined);
+    window.location.href = `https://wa.me/?text=${encodedMessage}`;
   };
 
   return (
@@ -241,11 +232,9 @@ function RekapanPage() {
       </div>
 
       <div className="space-y-3">
-        <a
-          href={waHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={handleWaClick}
+        <button
+          type="button"
+          onClick={handleSendRekap}
           className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 active:scale-[0.98]"
         >
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20">
@@ -257,7 +246,7 @@ function RekapanPage() {
               {bazar.name} · {bazarDate}
             </div>
           </div>
-        </a>
+        </button>
 
         <Button
           variant="outline"
