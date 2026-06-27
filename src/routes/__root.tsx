@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { AppHeader } from "@/components/AppHeader";
 import { Toaster } from "@/components/ui/sonner";
-import { useAuth } from "@/lib/auth";
+import { useAuth, getAuthUser } from "@/lib/auth";
 import { ORGANIZATION_NAME } from "@/lib/branding";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -78,6 +78,7 @@ function RootComponent() {
   const { user } = useAuth();
   const isAuthPage = pathname === "/auth";
   const showHeader = pathname === "/" && !!user;
+  const hasStoredUser = typeof window !== "undefined" && !!getAuthUser();
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
@@ -90,7 +91,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
-        {!user && !isAuthPage && <Navigate to="/auth" replace />}
+        {!user && !hasStoredUser && !isAuthPage && <Navigate to="/auth" replace />}
         {user && isAuthPage && <Navigate to="/" replace />}
         {showHeader && <AppHeader />}
         <main className="mx-auto max-w-5xl px-4 py-6">
