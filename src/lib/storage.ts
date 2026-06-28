@@ -128,7 +128,10 @@ export function setDB(updater: (d: DB) => DB | void) {
   const next = updater(db);
   if (next) db = next;
   db = { ...db };
-  save();
+  if (typeof window !== "undefined") {
+    localStorage.setItem(KEY, JSON.stringify(db));
+  }
+  listeners.forEach((l) => l());
 }
 
 // ------- Logo (header) -------
