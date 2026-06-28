@@ -226,12 +226,43 @@ export function pushToSheet(_type: SyncEventType, _payload: unknown): void {
   // deprecated no-op
 }
 
+export type ExportResult = { ok: boolean; message: string };
+
 // ============= Bulk export final =============
 // Hanya menulis 5 sheet final:
 // Bazar, Pesanan, Penjualan, Pengeluaran, Pembayaran Piutang.
-export async function exportAll(db: DB): Promise<boolean> {
+//
+// CATATAN PENTING (root cause "kirim rekapan tidak berfungsi"):
+// Versi sebelumnya memanggil fetch dengan `mode: "no-cors"`. Dalam mode itu,
+// browser TIDAK PERNAH mengizinkan JavaScript membaca isi/status response —
+// promise dari fetch akan selalu "berhasil" (resolve) selama request keluar
+// dari device, terlepas dari apakah Apps Script di sisi server benar-benar
+// berhasil menulis ke Google Sheets atau tidak (URL salah, deployment belum
+// di-redeploy, akses bukan "Anyone", error di script, dll semuanya tetap
+// dianggap "sukses" oleh kode lama). Akibatnya tombol selalu menunjukkan
+// toast sukses padahal datanya belum tentu masuk ke sheet, dan setiap kali
+// "diperbaiki" tidak ada cara untuk tahu apakah perbaikannya benar-benar
+// berhasil — makanya bug ini terasa "sudah diperbaiki berkali-kali" tapi
+// tidak pernah benar-benar selesai.
+//
+// Apps Script Web App memang punya keterbatasan CORS untuk request POST,
+// tapi karena body request ini dikirim dengan Content-Type "text/plain"
+// (bukan application/json), browser tidak mengirim CORS preflight, dan saat
+// Apps Script merespons, Google akan redirect ke script.googleusercontent.com
+// dengan method GET — response GET inilah yang sudah membawa header
+// "Access-Control-Allow-Origin", sehingga response JSON dari Apps Script
+// (yang sudah berisi {ok, message, error}) sebenarnya BISA dibaca langsung
+// tanpa "no-cors". Jadi cukup pakai mode default ("cors") lalu baca hasilnya.
+//
+// Kalau ternyata browser tertentu masih menolak membaca response (mis. true
+// network/CORS error), kita fallback kirim ulang dengan no-cors supaya
+// datanya tetap punya kesempatan terkirim, tapi user diberi tahu jujur bahwa
+// hasilnya tidak bisa diverifikasi — bukan diklaim "berhasil" begitu saja.
+export async function exportAll(db: DB): Promise<ExportResult> {
   const targetUrl = load();
-  if (!targetUrl) return false;
+  if (!targetUrl) {
+    return { ok: false, message: "URL Apps Script belum diatur." };
+  }
 
   const sheets: Record<string, Row[]> = {
     Bazar: bazarRows(db.bazars),
@@ -241,28 +272,75 @@ export async function exportAll(db: DB): Promise<boolean> {
     "Pembayaran Piutang": paymentRows(db, db.payments),
   };
 
+  const body = JSON.stringify({
+    type: "bulk_export",
+    payload: {
+      bazars: db.bazars,
+      menus: db.menus,
+      orders: db.orders,
+      sales: db.sales,
+      expenses: db.expenses,
+      payments: db.payments,
+    },
+    sheets,
+    sentAt: new Date().toISOString(),
+  });
+
+  const requestInit: RequestInit = {
+    method: "POST",
+    redirect: "follow",
+    headers: { "Content-Type": "application/json" },
+    body,
+  };
+
   try {
-    await fetch(targetUrl, {
-      method: "POST",
-      mode: "no-cors",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({
-        type: "bulk_export",
-        payload: {
-          bazars: db.bazars,
-          menus: db.menus,
-          orders: db.orders,
-          sales: db.sales,
-          expenses: db.expenses,
-          payments: db.payments,
-        },
-        sheets,
-        sentAt: new Date().toISOString(),
-      }),
-    });
-    return true;
+    const res = await fetch(targetUrl, requestInit);
+
+    let parsed: { ok?: boolean; message?: string; error?: string } | null = null;
+    try {
+      parsed = await res.json();
+    } catch {
+      parsed = null;
+    }
+
+    if (parsed && typeof parsed.ok === "boolean") {
+      return {
+        ok: parsed.ok,
+        message:
+          parsed.message ||
+          parsed.error ||
+          (parsed.ok ? "Ekspor berhasil" : "Apps Script menolak data."),
+      };
+    }
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: `Apps Script merespons error (HTTP ${res.status}). Cek URL deployment & pastikan akses diset "Anyone".`,
+      };
+    }
+
+    return {
+      ok: false,
+      message:
+        'Respon dari Apps Script tidak dikenali. Pastikan URL adalah link deployment "/exec" terbaru dan kode APPS_SCRIPT_FINAL.gs sudah di-deploy ulang sebagai versi baru.',
+    };
   } catch {
-    return false;
+    // Benar-benar gagal dibaca (CORS/network). Kirim ulang sebagai best-effort
+    // dengan no-cors supaya data tetap punya kesempatan masuk, tapi jangan
+    // klaim sukses karena kita tidak bisa memverifikasinya.
+    try {
+      await fetch(targetUrl, { ...requestInit, mode: "no-cors" });
+    } catch {
+      return {
+        ok: false,
+        message: "Gagal terhubung ke Apps Script. Cek koneksi internet dan URL deployment.",
+      };
+    }
+    return {
+      ok: false,
+      message:
+        "Data sudah dikirim tapi browser tidak bisa membaca balasan Apps Script (kemungkinan CORS/redeploy). Cek manual apakah Google Sheets sudah terupdate.",
+    };
   }
 }
