@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Wallet, MessageCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDB, fmtIDR, saleOutstanding } from "@/lib/storage";
-import { shareToWhatsApp } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
