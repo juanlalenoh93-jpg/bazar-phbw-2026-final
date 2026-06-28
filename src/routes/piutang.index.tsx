@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Wallet, MessageCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDB, fmtIDR, saleOutstanding } from "@/lib/storage";
+import { shareToWhatsApp } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/piutang/")({
   component: PiutangList,
@@ -16,6 +18,7 @@ const DEFAULT_TEMPLATE =
 function PiutangList() {
   const db = useDB();
   const [editingTpl, setEditingTpl] = useState(false);
+  const [showFormat, setShowFormat] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
 
   useEffect(() => {
@@ -43,10 +46,16 @@ function PiutangList() {
     return template.replace(/\{LIST\}/g, lines).replace(/\{TOTAL\}/g, fmtIDR(totalAll));
   };
 
-  const sendWA = () => {
+  const sendWA = async () => {
     if (list.length === 0) return;
-    const url = `https://wa.me/?text=${encodeURIComponent(buildMessage())}`;
-    window.open(url, "_blank");
+    const result = await shareToWhatsApp(buildMessage());
+    if (!result.opened) {
+      if (result.copied) {
+        toast.info("Pop-up WhatsApp diblokir browser. Teks rekap sudah disalin — tempel manual di WhatsApp.");
+      } else {
+        toast.error("Gagal membuka WhatsApp. Pastikan pop-up tidak diblokir, lalu coba lagi.");
+      }
+    }
   };
 
   const saveTemplate = () => {
@@ -80,27 +89,39 @@ function PiutangList() {
           </Button>
 
           <div className="rounded-2xl border bg-card p-4">
-            <div className="mb-2 flex items-center justify-between">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between"
+              onClick={() => setShowFormat((v) => !v)}
+            >
               <div className="text-sm font-semibold">Format Pesan WA</div>
-              <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs">
-                <Pencil className="h-3.5 w-3.5" /> {editingTpl ? "Tutup" : "Edit"}
-              </Button>
-            </div>
-            {editingTpl ? (
-              <>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Gunakan <code className="bg-muted px-1">{"{LIST}"}</code> untuk daftar piutang dan <code className="bg-muted px-1">{"{TOTAL}"}</code> untuk total.
-                </p>
-                <Textarea rows={7} value={template} onChange={(e) => setTemplate(e.target.value)} className="text-xs" />
-                <div className="mt-2 flex gap-2">
-                  <Button size="sm" onClick={saveTemplate}>Simpan</Button>
-                  <Button size="sm" variant="outline" onClick={() => { setTemplate(DEFAULT_TEMPLATE); localStorage.removeItem(TEMPLATE_KEY); }}>Reset</Button>
+              <span className="text-xs text-muted-foreground">{showFormat ? "▲ Tutup" : "▼ Lihat"}</span>
+            </button>
+            {showFormat && (
+              <div className="mt-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Preview pesan</span>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs">
+                    <Pencil className="h-3.5 w-3.5" /> {editingTpl ? "Tutup" : "Edit"}
+                  </Button>
                 </div>
-              </>
-            ) : (
-              <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
-                {buildMessage()}
-              </pre>
+                {editingTpl ? (
+                  <>
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      Gunakan <code className="bg-muted px-1">{"{LIST}"}</code> untuk daftar piutang dan <code className="bg-muted px-1">{"{TOTAL}"}</code> untuk total.
+                    </p>
+                    <Textarea rows={7} value={template} onChange={(e) => setTemplate(e.target.value)} className="text-xs" />
+                    <div className="mt-2 flex gap-2">
+                      <Button size="sm" onClick={saveTemplate}>Simpan</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setTemplate(DEFAULT_TEMPLATE); localStorage.removeItem(TEMPLATE_KEY); }}>Reset</Button>
+                    </div>
+                  </>
+                ) : (
+                  <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+                    {buildMessage()}
+                  </pre>
+                )}
+              </div>
             )}
           </div>
         </>
