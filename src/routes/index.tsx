@@ -50,20 +50,22 @@ function Dashboard() {
       return;
     }
     setExporting(true);
-    const ok = await exportAll(db);
+    const result = await exportAll(db);
     setExporting(false);
-    if (ok) toast.success("Seluruh data dikirim ke Google Sheets");
-    else toast.error("Gagal mengirim — cek URL Apps Script");
+    if (result.ok) toast.success(result.message || "Seluruh data dikirim ke Google Sheets");
+    else toast.error(result.message || "Gagal mengirim — cek URL Apps Script", { duration: 8000 });
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-0.5">
-          <p className="text-sm font-medium text-foreground">{greeting(displayName)}</p>
-          <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${isAdmin ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
-            {isAdmin ? "ADMIN" : "VIEWER"}
-          </span>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-foreground">{greeting(displayName)}</p>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${isAdmin ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+              {isAdmin ? "ADMIN" : "VIEWER"}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <AppSettings />
