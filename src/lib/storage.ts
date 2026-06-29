@@ -128,6 +128,7 @@ export function setDB(updater: (d: DB) => DB | void) {
   const next = updater(db);
   if (next) db = next;
   db = { ...db };
+  dbSnapshot = db;
   if (typeof window !== "undefined") {
     localStorage.setItem(KEY, JSON.stringify(db));
   }
@@ -212,6 +213,8 @@ export function useRightLogo(): string | null {
   );
 }
 
+let dbSnapshot: DB = initialDB;
+
 export function useDB(): DB {
   return useSyncExternalStore(
     (cb) => {
@@ -220,7 +223,8 @@ export function useDB(): DB {
     },
     () => {
       load();
-      return db;
+      dbSnapshot = db;
+      return dbSnapshot;
     },
     () => initialDB,
   );
