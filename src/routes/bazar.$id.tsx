@@ -1126,7 +1126,7 @@ function RekapanTab({ bazarId, bazarName, bazarDate }: { bazarId: string; bazarN
       <div className="rounded-2xl border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-semibold">Format Pesan WA</div>
-          <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs"><Pencil className="h-3.5 w-3.5" /> {editingTpl ? "Tutup" : "Edit"}</Button>
+          {isAdmin && <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs"><Pencil className="h-3.5 w-3.5" /> {editingTpl ? "Tutup" : "Edit"}</Button>}
         </div>
         {editingTpl ? (
           <div className="space-y-2">
