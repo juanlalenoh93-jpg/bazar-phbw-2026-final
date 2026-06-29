@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Wallet, MessageCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDB, fmtIDR, saleOutstanding } from "@/lib/storage";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ const DEFAULT_TEMPLATE =
 
 function PiutangList() {
   const db = useDB();
+  const { isAdmin } = useAuth();
   const [editingTpl, setEditingTpl] = useState(false);
   const [showFormat, setShowFormat] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
@@ -74,7 +76,7 @@ function PiutangList() {
 
       {list.length > 0 && (
         <>
-          <Button
+          {isAdmin && <Button
             onClick={sendWA}
             className="h-auto w-full justify-start gap-3 rounded-2xl bg-emerald-600 py-4 text-left text-white hover:bg-emerald-700"
           >
@@ -85,7 +87,7 @@ function PiutangList() {
                 {list.length} customer · Total {fmtIDR(totalAll)}
               </div>
             </div>
-          </Button>
+          </Button>}
 
           <div className="rounded-2xl border bg-card p-4">
             <button
