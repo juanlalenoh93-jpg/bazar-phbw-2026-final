@@ -102,9 +102,9 @@ function PiutangList() {
               <div className="mt-3">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Preview pesan</span>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs">
+                  {isAdmin && <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs">
                     <Pencil className="h-3.5 w-3.5" /> {editingTpl ? "Tutup" : "Edit"}
-                  </Button>
+                  </Button>}
                 </div>
                 {editingTpl ? (
                   <>
