@@ -115,7 +115,7 @@ function Dashboard() {
         <div className="mb-2 text-sm font-semibold">Sinkron Google Sheets</div>
         <p className="mb-3 text-xs text-muted-foreground">Atur URL Apps Script, lalu ekspor seluruh data aplikasi ke Google Sheets dari halaman utama ini.</p>
         <div className="space-y-2">
-          <SheetSyncSettings fullWidth />
+          {isAdmin && <SheetSyncSettings fullWidth />}
           <Button
             type="button"
             className="w-full gap-2"
@@ -528,13 +528,13 @@ function AppSettings() {
   };
 
   const menuItems: { action: SettingsAction; icon?: ReactNode; adminOnly?: boolean }[] = [
-    { action: "pin" },
-    { action: "left-logo" },
-    { action: "right-logo" },
-    { action: "main-header" },
-    { action: "workspace-header" },
-    { action: "customers", icon: <Users className="h-4 w-4" /> },
-    { action: "backup-restore", icon: <Database className="h-4 w-4" /> },
+    { action: "pin", adminOnly: true },
+    { action: "left-logo", adminOnly: true },
+    { action: "right-logo", adminOnly: true },
+    { action: "main-header", adminOnly: true },
+    { action: "workspace-header", adminOnly: true },
+    { action: "customers", icon: <Users className="h-4 w-4" />, adminOnly: true },
+    { action: "backup-restore", icon: <Database className="h-4 w-4" />, adminOnly: true },
     { action: "admin-list", icon: <ShieldCheck className="h-4 w-4" />, adminOnly: true },
   ];
 
@@ -542,9 +542,9 @@ function AppSettings() {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) resetAction(); }}>
-      <DialogTrigger asChild>
+      {isAdmin && <DialogTrigger asChild>
         <Button size="icon" variant="ghost" aria-label="Pengaturan"><Settings className="h-4 w-4" /></Button>
-      </DialogTrigger>
+      </DialogTrigger>}
       <DialogContent>
         <DialogHeader><DialogTitle>Pengaturan Aplikasi</DialogTitle></DialogHeader>
         <div className="space-y-3">
