@@ -19,10 +19,10 @@ import { PinConfirmDelete } from "./bazar.index";
 export const Route = createFileRoute("/")({ component: Dashboard });
 
 const menus = [
-  { to: "/bazar", label: "Daftar Bazar", desc: "Kelola event, menu, pesanan, penjualan & pengeluaran.", Icon: Store },
-  { to: "/piutang", label: "Daftar Piutang", desc: "Akumulasi piutang per customer dari semua bazar.", Icon: Wallet },
-  { to: "/riwayat", label: "Riwayat Pembayaran Piutang", desc: "Log cicilan & pelunasan, terbaru di atas.", Icon: History },
-  { to: "/kalkulator", label: "Kalkulator Keuntungan", desc: "Simulasi ekspektasi pendapatan bazar berikutnya.", Icon: Calculator },
+  { to: "/bazar", label: "Daftar Bazar", desc: "Kelola event, menu, pesanan, penjualan & pengeluaran.", Icon: Store, adminOnly: false },
+  { to: "/piutang", label: "Daftar Piutang", desc: "Akumulasi piutang per customer dari semua bazar.", Icon: Wallet, adminOnly: false },
+  { to: "/riwayat", label: "Riwayat Pembayaran Piutang", desc: "Log cicilan & pelunasan, terbaru di atas.", Icon: History, adminOnly: false },
+  { to: "/kalkulator", label: "Kalkulator Keuntungan", desc: "Simulasi ekspektasi pendapatan bazar berikutnya.", Icon: Calculator, adminOnly: true },
 ] as const;
 
 function greeting(name: string): string {
@@ -96,7 +96,7 @@ function Dashboard() {
       </Link>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {menus.map(({ to, label, desc, Icon }) => (
+        {menus.filter((m) => !m.adminOnly || isAdmin).map(({ to, label, desc, Icon }) => (
           <Link key={to} to={to} className="group rounded-2xl border bg-card p-5 transition hover:border-primary hover:shadow-md">
             <div className="flex items-start gap-4">
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
@@ -111,11 +111,11 @@ function Dashboard() {
         ))}
       </div>
 
-      <div className="rounded-2xl border bg-card p-4">
+      {isAdmin && <div className="rounded-2xl border bg-card p-4">
         <div className="mb-2 text-sm font-semibold">Sinkron Google Sheets</div>
         <p className="mb-3 text-xs text-muted-foreground">Atur URL Apps Script, lalu ekspor seluruh data aplikasi ke Google Sheets dari halaman utama ini.</p>
         <div className="space-y-2">
-          {isAdmin && <SheetSyncSettings fullWidth />}
+          <SheetSyncSettings fullWidth />
           <Button
             type="button"
             className="w-full gap-2"
@@ -126,7 +126,7 @@ function Dashboard() {
             {exporting ? "Mengirim data ke Sheets..." : "🔄 Ekspor Semua Data ke Google Sheets"}
           </Button>
         </div>
-      </div>
+      </div>}
 
       <p className="text-center text-[10px] text-muted-foreground">App created by : JJ</p>
     </div>
@@ -542,9 +542,9 @@ function AppSettings() {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) resetAction(); }}>
-      {isAdmin && <DialogTrigger asChild>
+      <DialogTrigger asChild>
         <Button size="icon" variant="ghost" aria-label="Pengaturan"><Settings className="h-4 w-4" /></Button>
-      </DialogTrigger>}
+      </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Pengaturan Aplikasi</DialogTitle></DialogHeader>
         <div className="space-y-3">
