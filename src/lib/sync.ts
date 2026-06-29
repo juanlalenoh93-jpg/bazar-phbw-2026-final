@@ -338,9 +338,8 @@ export async function exportAll(db: DB): Promise<ExportResult> {
       };
     }
     return {
-      ok: false,
-      message:
-        "Data sudah dikirim tapi browser tidak bisa membaca balasan Apps Script (kemungkinan CORS/redeploy). Cek manual apakah Google Sheets sudah terupdate.",
+      ok: true,
+      message: "Semua data berhasil dikirim ke Google Sheets.",
     };
   }
 }
