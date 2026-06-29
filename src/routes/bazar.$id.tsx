@@ -1105,6 +1105,7 @@ function buildMessage(template: string, data: ReturnType<typeof computeRekap>, b
 }
 function RekapanTab({ bazarId, bazarName, bazarDate }: { bazarId: string; bazarName: string; bazarDate: string }) {
   const db = useDB();
+  const { isAdmin } = useAuth();
   const [editingTpl, setEditingTpl] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   useEffect(() => { const saved = localStorage.getItem(REKAP_TEMPLATE_KEY); if (saved) setTemplate(saved); }, []);
@@ -1117,11 +1118,11 @@ function RekapanTab({ bazarId, bazarName, bazarDate }: { bazarId: string; bazarN
   const resetTemplate = () => { setTemplate(DEFAULT_TEMPLATE); localStorage.removeItem(REKAP_TEMPLATE_KEY); toast.success("Template direset"); };
   return (
     <div className="space-y-4">
-      <button type="button" onClick={handleSendRekap} className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg transition hover:bg-emerald-700 active:scale-[0.98]">
+      {isAdmin && <button type="button" onClick={handleSendRekap} className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg transition hover:bg-emerald-700 active:scale-[0.98]">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20"><MessageCircle className="h-6 w-6" /></div>
         <div className="min-w-0 flex-1"><div className="text-base font-semibold">Kirim Rekapan ke WA</div><div className="text-xs text-emerald-100/90">{bazarName} · {bazarDateFmt}</div></div>
-      </button>
-      <Button variant="outline" className="w-full gap-2" onClick={copyMessage}><Copy className="h-4 w-4" /> Salin Teks Rekapan</Button>
+      </button>}
+      {isAdmin && <Button variant="outline" className="w-full gap-2" onClick={copyMessage}><Copy className="h-4 w-4" /> Salin Teks Rekapan</Button>}
       <div className="rounded-2xl border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-semibold">Format Pesan WA</div>
