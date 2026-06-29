@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { ArrowLeft, Upload } from "lucide-react";
 import { useDB, setDB, uid, fmtIDR, fmtDateTime, saleOutstanding, salePaidTotal, type PiutangPayment } from "@/lib/storage";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,9 +70,9 @@ function CustomerDetail() {
                 <div className="mt-2 text-xs text-muted-foreground">
                   Total {fmtIDR(s.total)} · Sudah dibayar {fmtIDR(paidSoFar)}
                 </div>
-                <div className="mt-3">
+                {isAdmin && <div className="mt-3">
                   <BayarDialog saleId={s.id} bazarName={bazarName(s.bazarId)} menuSummary={s.items.map((i) => `${i.name}×${i.qty}`).join(", ")} max={out} customer={customer} bazarId={s.bazarId} />
-                </div>
+                </div>}
               </div>
             );
           })}
