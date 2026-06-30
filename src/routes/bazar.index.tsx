@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2, Store, ShoppingCart, Wallet, Users, TrendingUp, Landmark } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Store, ShoppingCart, Wallet, TrendingUp, Users, Landmark } from "lucide-react";
 import { useDB, setDB, uid, fmtDate, fmtIDR, bazarStats } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -134,25 +134,24 @@ function BazarList() {
           {bazars.map((b) => {
             const s = bazarStats(db, b.id);
             return (
-              <div key={b.id} className="rounded-2xl border bg-card p-4">
+              <div key={b.id} className="rounded-[16px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
                 <div className="flex items-start justify-between gap-3">
                   <Link to="/bazar/$id" params={{ id: b.id }} className="min-w-0 flex-1">
-                    <div className="font-bold text-lg text-foreground">{b.name}</div>
+                    <div className="font-semibold text-foreground">{b.name}</div>
                     <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
-                    <div className="mt-3 rounded-xl border bg-muted/20 p-3">
-                      <div className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground">RINGKASAN KEUANGAN</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <FinanceBox icon={<ShoppingCart className="h-4 w-4" />} label="Penjualan" value={fmtIDR(s.totalSales)} tone="green" />
-                        <FinanceBox icon={<Wallet className="h-4 w-4" />} label="Pengeluaran" value={fmtIDR(s.totalExpense)} tone="red" />
-                        <FinanceBox icon={<Users className="h-4 w-4" />} label="Piutang" value={fmtIDR(s.totalPiutang)} tone="orange" />
-                        <FinanceBox icon={<TrendingUp className="h-4 w-4" />} label="Keuntungan" value={fmtIDR(s.profit)} tone="green" />
-                      </div>
-                      <div className="my-3 border-t" />
-                      <div className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground">METODE PEMBAYARAN</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <FinanceBox icon={<Wallet className="h-4 w-4" />} label="Cash" value={fmtIDR(s.totalCash)} tone="green" />
-                        <FinanceBox icon={<Landmark className="h-4 w-4" />} label="Transfer" value={fmtIDR(s.totalTransfer)} tone="blue" />
-                      </div>
+
+                    <div className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ringkasan Keuangan</div>
+                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                      <FinanceBox icon={<ShoppingCart className="h-4 w-4" />} tone="emerald" label="Penjualan" value={s.totalSales} />
+                      <FinanceBox icon={<Wallet className="h-4 w-4" />} tone="rose" label="Pengeluaran" value={s.totalExpense} />
+                      <FinanceBox icon={<Users className="h-4 w-4" />} tone="amber" label="Piutang" value={s.totalPiutang} />
+                      <FinanceBox icon={<TrendingUp className="h-4 w-4" />} tone="emerald" label="Keuntungan" value={s.profit} />
+                    </div>
+
+                    <div className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Metode Pembayaran</div>
+                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                      <FinanceBox icon={<Wallet className="h-4 w-4" />} tone="emerald" label="Cash" value={s.totalCash} />
+                      <FinanceBox icon={<Landmark className="h-4 w-4" />} tone="blue" label="Transfer" value={s.totalTransfer} />
                     </div>
                   </Link>
                   {isAdmin && (
@@ -175,33 +174,28 @@ function BazarList() {
 
 function FinanceBox({
   icon,
+  tone,
   label,
   value,
-  tone,
 }: {
   icon: React.ReactNode;
+  tone: "emerald" | "rose" | "amber" | "blue";
   label: string;
-  value: string;
-  tone: "green" | "red" | "orange" | "blue";
+  value: number;
 }) {
-  const toneClasses: Record<typeof tone, string> = {
-    green: "bg-emerald-50 text-emerald-700",
-    red: "bg-rose-50 text-rose-700",
-    orange: "bg-orange-50 text-orange-700",
-    blue: "bg-blue-50 text-blue-700",
+  const toneMap: Record<string, { bg: string; text: string }> = {
+    emerald: { bg: "bg-emerald-100", text: "text-emerald-700" },
+    rose: { bg: "bg-rose-100", text: "text-rose-600" },
+    amber: { bg: "bg-amber-100", text: "text-amber-700" },
+    blue: { bg: "bg-blue-100", text: "text-blue-700" },
   };
-  const valueClasses: Record<typeof tone, string> = {
-    green: "text-emerald-700",
-    red: "text-rose-600",
-    orange: "text-orange-600",
-    blue: "text-blue-700",
-  };
+  const t = toneMap[tone];
   return (
-    <div className="flex items-center gap-2 rounded-xl border bg-card p-2.5">
-      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${toneClasses[tone]}`}>{icon}</div>
-      <div className="min-w-0 flex-1 text-left">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className={`break-words text-sm font-bold leading-tight ${valueClasses[tone]}`}>{value}</div>
+    <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-xl border bg-muted/30 p-2.5">
+      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${t.bg} ${t.text}`}>{icon}</div>
+      <div className="min-w-0 flex-1">
+        <div className="whitespace-nowrap text-[10px] text-muted-foreground">{label}</div>
+        <div className={`overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold leading-tight ${t.text}`}>{fmtIDR(value)}</div>
       </div>
     </div>
   );

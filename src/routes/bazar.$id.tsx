@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, BarChart3, Lightbulb, Wallet, FileCheck2, CircleDollarSign, Banknote, UserRound } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
-  allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuOrderedQty, menuNotTaken, bazarMenuSummary, useLogo,
+  allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo,
   type MenuItem, type Order, type Sale,
 } from "@/lib/storage";
 import { ORGANIZATION_NAME, useWorkspaceHeader } from "@/lib/branding";
@@ -158,7 +158,7 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
-  const [searchMenu, setSearchMenu] = useState("");
+  const [search, setSearch] = useState("");
 
   const reset = () => { setEditId(null); setName(""); setPrice(""); };
   const openEdit = (m: MenuItem) => { setEditId(m.id); setName(m.name); setPrice(String(m.price)); setOpen(true); };
@@ -183,8 +183,8 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
   };
 
   const filteredMenus = useMemo(
-    () => menus.filter((m) => m.name.toLowerCase().includes(searchMenu.trim().toLowerCase())),
-    [menus, searchMenu],
+    () => menus.filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase())),
+    [menus, search],
   );
 
   const summary = useMemo(() => bazarMenuSummary(db, bazarId), [db, bazarId]);
@@ -213,8 +213,8 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={searchMenu}
-            onChange={(e) => setSearchMenu(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari menu..."
             className="pl-9"
           />
@@ -223,7 +223,7 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
 
       {menus.length > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800">
-          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
+          <ClipboardList className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="text-xs">
             <div className="font-semibold">Statistik menu dihitung otomatis</div>
             <div className="text-emerald-700/80">Berdasarkan data pesanan dan penjualan pada bazar ini.</div>
@@ -234,83 +234,70 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
       {menus.length === 0 ? <Empty text="Belum ada menu untuk bazar ini." /> : filteredMenus.length === 0 ? <Empty text="Tidak ada menu dengan nama itu." /> : (
         <div className="grid gap-2">
           {filteredMenus.map((m) => {
-            const sold = menuSoldQty(db, m.id);
-            const ordered = menuOrderedQty(db, m.id);
-            const notTaken = menuNotTaken(db, m.id);
+            const stat = menuStats(db, m.id);
             return (
-              <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-3">
-                <div className="min-w-[120px] flex-1">
-                  <div className="font-medium truncate">{m.name}</div>
-                  <div className="text-xs text-muted-foreground">{fmtIDR(m.price)}</div>
+              <div key={m.id} className="rounded-[16px] border bg-card p-2.5 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{m.name}</div>
+                    <div className="text-sm text-muted-foreground">{fmtIDR(m.price)}</div>
+                  </div>
+                  {isAdmin && (
+                    <div className="flex shrink-0 items-center gap-2.5">
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
+                      <PinConfirmDelete label={m.name} requirePin={stat.pesanan > 0 || stat.terjual > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
+                    </div>
+                  )}
                 </div>
-                <div className="flex shrink-0 items-center gap-2.5 text-xs">
-                  <div className="flex items-center gap-1">
-                    <ClipboardList className="h-3.5 w-3.5 text-blue-500" />
-                    <div>
-                      <div className="text-muted-foreground">Pesanan</div>
-                      <div className="font-semibold">{ordered}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <ShoppingCart className="h-3.5 w-3.5 text-emerald-600" />
-                    <div>
-                      <div className="text-muted-foreground">Terjual</div>
-                      <div className="font-semibold">{sold}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5 text-amber-500" />
-                    <div>
-                      <div className="text-muted-foreground">Belum diambil</div>
-                      <div className="font-semibold">{notTaken}</div>
-                    </div>
-                  </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 border-t pt-2 text-center">
+                  <MenuStatItem icon={<ClipboardList className="h-3.5 w-3.5" />} label="Pesanan" value={stat.pesanan} />
+                  <MenuStatItem icon={<ShoppingCart className="h-3.5 w-3.5" />} label="Terjual" value={stat.terjual} tone="good" />
+                  <MenuStatItem icon={<Clock className="h-3.5 w-3.5" />} label="Belum diambil" value={stat.belumDiambil} tone="warn" />
                 </div>
-                {isAdmin && (
-                  <div className="flex shrink-0 gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
-                    <PinConfirmDelete label={m.name} requirePin={sold > 0 || ordered > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
-                  </div>
-                )}
               </div>
             );
           })}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/30 p-3">
-            <div className="flex min-w-[160px] flex-1 items-center gap-2">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
-                <BarChart3 className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-semibold truncate">Ringkasan Menu</div>
-                <div className="text-xs text-muted-foreground">Total semua menu</div>
-              </div>
+        </div>
+      )}
+
+      {menus.length > 0 && (
+        <div className="rounded-[16px] border bg-gradient-to-br from-emerald-50/60 to-card p-3.5 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
+              <ClipboardList className="h-4.5 w-4.5" />
             </div>
-            <div className="flex shrink-0 items-center gap-2.5 text-xs">
-              <div className="flex items-center gap-1">
-                <ClipboardList className="h-3.5 w-3.5 text-blue-500" />
-                <div>
-                  <div className="text-muted-foreground">Pesanan</div>
-                  <div className="font-semibold">{summary.ordered}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <ShoppingCart className="h-3.5 w-3.5 text-emerald-600" />
-                <div>
-                  <div className="text-muted-foreground">Terjual</div>
-                  <div className="font-semibold">{summary.sold}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-amber-500" />
-                <div>
-                  <div className="text-muted-foreground">Belum diambil</div>
-                  <div className="font-semibold">{summary.notTaken}</div>
-                </div>
-              </div>
+            <div className="text-sm">
+              <div className="font-semibold">Ringkasan Menu</div>
+              <div className="text-xs text-muted-foreground">Total semua menu</div>
             </div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
+            <SummaryStat label="Pesanan" value={summary.pesanan} />
+            <SummaryStat label="Terjual" value={summary.terjual} tone="good" />
+            <SummaryStat label="Belum diambil" value={summary.belumDiambil} tone="warn" />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MenuStatItem({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "good" | "warn" }) {
+  const cls = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-600" : "text-foreground";
+  return (
+    <div>
+      <div className={`flex items-center justify-center gap-1 text-[11px] text-muted-foreground`}>{icon} {label}</div>
+      <div className={`text-base font-bold ${cls}`}>{value}</div>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value, tone }: { label: string; value: number; tone?: "good" | "warn" }) {
+  const cls = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-600" : "text-foreground";
+  return (
+    <div>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className={`text-base font-bold ${cls}`}>{value}</div>
     </div>
   );
 }
@@ -515,15 +502,15 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
   const db = useDB();
   const displayItems = useMemo(() => orderDisplayItems(db, order, menus), [db, order, menus]);
   const status = useMemo(() => orderStatusInfo(db, order), [db, order]);
-  const totalItem = useMemo(() => displayItems.reduce((s, i) => s + i.originalQty, 0), [displayItems]);
-  const totalPesanan = useMemo(() => displayItems.reduce((s, i) => s + i.price * i.originalQty, 0), [displayItems]);
+  const totalItem = displayItems.reduce((s, i) => s + i.originalQty, 0);
+  const totalPesanan = displayItems.reduce((s, i) => s + i.price * i.originalQty, 0);
   const initial = order.customer.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className={`rounded-2xl border p-4 ${status.fullSold ? "border-emerald-200 bg-emerald-50/40" : status.partialSold ? "border-amber-200 bg-amber-50/40" : "bg-card"}`}>
+    <div className={`rounded-[16px] border p-3.5 shadow-[0_2px_8px_rgba(0,0,0,.06)] ${status.fullSold ? "border-emerald-200 bg-emerald-50/40" : status.partialSold ? "border-amber-200 bg-amber-50/40" : "bg-card"}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-base font-semibold text-primary">
             {initial}
           </div>
           <div className="min-w-0">
@@ -536,42 +523,29 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
         ) : status.partialSold ? (
           <Badge className="bg-amber-500 text-white">{status.label}</Badge>
         ) : (
-          <Badge className="bg-muted text-muted-foreground hover:bg-muted">{status.label}</Badge>
+          <Badge variant="secondary">{status.label}</Badge>
         )}
       </div>
-      <div className="mt-3 space-y-1 text-sm">
+      <div className="mt-2.5 space-y-0.5 text-sm">
         {displayItems.map((i) => (
-          <div key={i.menuId} className="flex justify-between px-1 py-0.5">
+          <div key={i.menuId} className="flex justify-between px-0.5 py-0.5">
             <span>{i.name} × {i.originalQty}</span>
             <span className="text-muted-foreground">{fmtIDR(i.price * i.originalQty)}</span>
           </div>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 rounded-xl bg-muted/40 p-2.5 text-xs">
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <ClipboardList className="h-4 w-4 text-foreground/70" />
-          <div>
-            <div className="text-muted-foreground">Total Item</div>
-            <div className="font-semibold">{totalItem}</div>
-          </div>
+      <div className="mt-2.5 grid grid-cols-2 gap-2 border-t pt-2.5 text-center">
+        <div>
+          <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><ClipboardList className="h-3 w-3" /> Total Item</div>
+          <div className="text-sm font-bold">{totalItem}</div>
         </div>
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <FileCheck2 className="h-4 w-4 text-foreground/70" />
-          <div>
-            <div className="text-muted-foreground">Total Pesanan</div>
-            <div className="font-semibold">{fmtIDR(totalPesanan)}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <CheckCircle2 className="h-4 w-4 text-foreground/70" />
-          <div>
-            <div className="text-muted-foreground">Status</div>
-            <div className={`font-semibold ${status.fullSold ? "text-emerald-600" : status.partialSold ? "text-amber-600" : "text-muted-foreground"}`}>{status.label}</div>
-          </div>
+        <div>
+          <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><Receipt className="h-3 w-3" /> Total Pesanan</div>
+          <div className="whitespace-nowrap text-sm font-bold">{fmtIDR(totalPesanan)}</div>
         </div>
       </div>
       {isAdmin && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2.5 flex flex-wrap gap-2">
           {db.sales.some((sale) => sale.orderId === order.id) ? (
             <PinConfirmDelete
               label="pesanan"
@@ -597,6 +571,7 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
 }
 
 function EditOrderDialog({ order, menus }: { order: Order; menus: MenuItem[] }) {
+  const db = useDB();
   const [open, setOpen] = useState(false);
   const [picks, setPicks] = useState<Record<string, string>>(() =>
     Object.fromEntries(order.items.map((i) => [i.menuId, String(i.qty)])),
@@ -928,29 +903,20 @@ function PenjualanTab({ sales, bazarName, isAdmin }: { sales: Sale[]; bazarName:
   );
 }
 
-function StatBox({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  tone: "green" | "blue" | "purple" | "orange";
-}) {
-  const toneClasses: Record<typeof tone, string> = {
-    green: "bg-emerald-100 text-emerald-700",
-    blue: "bg-blue-100 text-blue-700",
-    purple: "bg-purple-100 text-purple-700",
-    orange: "bg-orange-100 text-orange-700",
+function StatGroupItem({ icon, tone, label, value }: { icon: React.ReactNode; tone: "emerald" | "blue" | "violet" | "amber" | "rose"; label: string; value: string }) {
+  const toneMap: Record<string, string> = {
+    emerald: "text-emerald-700",
+    blue: "text-blue-700",
+    violet: "text-violet-700",
+    amber: "text-amber-700",
+    rose: "text-rose-700",
   };
   return (
-    <div className={`flex flex-initial items-center gap-2 whitespace-nowrap rounded-xl p-2.5 ${toneClasses[tone]}`}>
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/60">{icon}</div>
-      <div>
-        <div className="text-[11px] opacity-80">{label}</div>
-        <div className="text-sm font-semibold">{value}</div>
+    <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 first:pl-0 last:pr-0">
+      <div className={`shrink-0 ${toneMap[tone]}`}>{icon}</div>
+      <div className="min-w-0">
+        <div className="text-[10px] text-muted-foreground">{label}</div>
+        <div className="truncate text-xs font-bold">{value}</div>
       </div>
     </div>
   );
@@ -1019,7 +985,7 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
   };
 
   return (
-    <div className="rounded-2xl border bg-card p-4">
+    <div className="rounded-[16px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="font-semibold">{sale.customer}</div>
@@ -1029,30 +995,23 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
       </div>
       <div className="mt-3 space-y-1 text-sm">
         {sale.items.map((i, idx) => (
-          <div key={idx} className="flex justify-between px-1 py-0.5">
+          <div key={idx} className="flex justify-between px-0.5 py-0.5">
             <span>{i.name} × {i.qty}</span>
             <span>{fmtIDR(i.price * i.qty)}</span>
           </div>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {status === "LUNAS" ? (
-          <>
-            <StatBox icon={<FileCheck2 className="h-4 w-4" />} label="Total" value={fmtIDR(sale.total)} tone="green" />
-            <StatBox icon={<CircleDollarSign className="h-4 w-4" />} label="Bayar" value={fmtIDR(sale.paid)} tone="blue" />
-            <StatBox icon={<Wallet className="h-4 w-4" />} label="Metode" value={sale.method === "cash" ? "Cash" : "Transfer"} tone="purple" />
-          </>
-        ) : (
-          <>
-            <StatBox icon={<FileCheck2 className="h-4 w-4" />} label="Total" value={fmtIDR(sale.total)} tone="green" />
-            <StatBox icon={<CircleDollarSign className="h-4 w-4" />} label="Bayar" value={fmtIDR(sale.paid)} tone="blue" />
-            <StatBox icon={<UserRound className="h-4 w-4" />} label="Sisa" value={fmtIDR(outstanding)} tone="orange" />
-          </>
-        )}
-      </div>
-      {status === "PIUTANG" && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Banknote className="h-3.5 w-3.5" /> Metode: <b>{sale.method === "cash" ? "Cash" : "Transfer"}</b>
+      {status === "LUNAS" ? (
+        <div className="mt-3 flex divide-x rounded-xl border bg-muted/30 px-2.5">
+          <StatGroupItem icon={<Receipt className="h-4 w-4" />} tone="emerald" label="Total" value={fmtIDR(sale.total)} />
+          <StatGroupItem icon={<Wallet className="h-4 w-4" />} tone="blue" label="Bayar" value={fmtIDR(sale.paid)} />
+          <StatGroupItem icon={<ShoppingBag className="h-4 w-4" />} tone="violet" label="Metode" value={sale.method === "cash" ? "Cash" : "Transfer"} />
+        </div>
+      ) : (
+        <div className="mt-3 flex divide-x rounded-xl border border-amber-200 bg-amber-50/50 px-2.5">
+          <StatGroupItem icon={<Receipt className="h-4 w-4" />} tone="emerald" label="Total" value={fmtIDR(sale.total)} />
+          <StatGroupItem icon={<Wallet className="h-4 w-4" />} tone="blue" label="Bayar" value={fmtIDR(sale.paid)} />
+          <StatGroupItem icon={<UserCog className="h-4 w-4" />} tone="amber" label="Sisa" value={fmtIDR(outstanding)} />
         </div>
       )}
       {sale.note && <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">📝 {sale.note}</div>}
@@ -1062,7 +1021,7 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
         </a>
       )}
       <div className="mt-3 flex gap-2">
-        <Button size="sm" variant="outline" onClick={printNota}><Printer className="h-4 w-4" /> Nota</Button>
+        <Button size="sm" variant="outline" onClick={printNota}><Printer className="h-4 w-4" /> Cetak Nota</Button>
         {isAdmin && <PinConfirmDelete label="penjualan" requirePin canDelete={canDeleteSale} onConfirm={doDelete} />}
       </div>
     </div>
@@ -1083,8 +1042,6 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
     expenses.filter((e) => e.name.toLowerCase().includes(searchName.trim().toLowerCase())),
     [expenses, searchName],
   );
-
-  const totalPengeluaran = useMemo(() => expenses.reduce((s, e) => s + e.amount, 0), [expenses]);
 
   const reset = () => { setEditId(null); setName(""); setQty(""); setAmount(""); };
 
@@ -1141,20 +1098,17 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
       )}
 
       {expenses.length > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl border bg-card p-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600">
-            <Wallet className="h-5 w-5" />
+        <div className="flex items-center gap-2.5 rounded-[16px] border bg-card p-2.5 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600">
+            <Wallet className="h-4.5 w-4.5" />
           </div>
-          <div className="flex flex-1 items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Ringkasan Pengeluaran</div>
-              <div className="text-xs text-muted-foreground">Total Pengeluaran</div>
-              <div className="text-lg font-bold text-destructive">{fmtIDR(totalPengeluaran)}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">Jumlah Transaksi</div>
-              <div className="text-lg font-bold">{expenses.length}</div>
-            </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold text-foreground">Ringkasan Pengeluaran</div>
+            <div className="whitespace-nowrap text-base font-bold text-destructive">{fmtIDR(expenses.reduce((s, e) => s + e.amount, 0))}</div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="whitespace-nowrap text-[11px] text-muted-foreground">Jumlah Transaksi</div>
+            <div className="text-base font-bold">{expenses.length}</div>
           </div>
         </div>
       )}
@@ -1162,23 +1116,20 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
       {expenses.length === 0 ? <Empty text="Belum ada pengeluaran." /> : filteredExpenses.length === 0 ? <Empty text="Tidak ada pengeluaran dengan nama belanjaan itu." /> : (
         <div className="grid gap-2">
           {filteredExpenses.map((e) => (
-            <div key={e.id} className="flex items-start justify-between gap-2 rounded-xl border bg-card p-3">
-              <div className="min-w-0">
-                <div className="font-semibold">{e.name}</div>
-                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Receipt className="h-3.5 w-3.5" /> {fmtDate(e.createdAt)}
-                </div>
-                <div className="text-xs text-muted-foreground">· Qty {e.qty || 1}</div>
+            <div key={e.id} className="flex items-center justify-between rounded-[16px] border bg-card p-3 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
+              <div>
+                <div className="font-medium">{e.name}</div>
+                <div className="text-xs text-muted-foreground">{fmtDate(e.createdAt)} · Qty {e.qty || 1}</div>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <span className="font-bold text-destructive">{fmtIDR(e.amount)}</span>
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-destructive">{fmtIDR(e.amount)}</span>
                 {isAdmin && (
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
-                      <Pencil className="h-3.5 w-3.5" /> Edit
+                  <>
+                    <Button size="icon" variant="ghost" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
+                      <Pencil className="h-4 w-4" />
                     </Button>
                     <PinConfirmDelete label={e.name} requirePin={(e.amount || 0) > 0} onConfirm={() => { setDB((d) => { d.expenses = d.expenses.filter((x) => x.id !== e.id); }); toast.success("Pengeluaran dihapus"); }} />
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1188,7 +1139,7 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
 
       {expenses.length > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800">
-          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
+          <ClipboardList className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="text-xs">
             <div className="font-semibold">Catatan</div>
             <div className="text-emerald-700/80">Pengeluaran digunakan untuk mencatat semua biaya dan belanjaan bazar.</div>
@@ -1279,7 +1230,7 @@ function RekapanTab({ bazarId, bazarName, bazarDate }: { bazarId: string; bazarN
         <div className="min-w-0 flex-1"><div className="text-base font-semibold">Kirim Rekapan ke WA</div><div className="text-xs text-emerald-100/90">{bazarName} · {bazarDateFmt}</div></div>
       </button>}
       {isAdmin && <Button variant="outline" className="w-full gap-2" onClick={copyMessage}><Copy className="h-4 w-4" /> Salin Teks Rekapan</Button>}
-      <div className="rounded-2xl border bg-card p-4">
+      <div className="rounded-[16px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-semibold">Format Pesan WA</div>
           {isAdmin && <Button size="sm" variant="ghost" onClick={() => setEditingTpl((v) => !v)} className="gap-1 text-xs"><Pencil className="h-3.5 w-3.5" /> {editingTpl ? "Tutup" : "Edit"}</Button>}
