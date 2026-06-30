@@ -984,12 +984,19 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
     w.document.close();
   };
 
+  const initial = sale.customer.trim().charAt(0).toUpperCase() || "?";
+
   return (
     <div className="rounded-[16px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="font-semibold">{sale.customer}</div>
-          <div className="text-xs text-muted-foreground">{fmtDateTime(sale.createdAt)}</div>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-semibold ${status === "LUNAS" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+            {initial}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate font-semibold">{sale.customer}</div>
+            <div className="text-xs text-muted-foreground">{fmtDateTime(sale.createdAt)}</div>
+          </div>
         </div>
         <Badge className={status === "LUNAS" ? "bg-emerald-600" : "bg-amber-500 text-white"}>{status}</Badge>
       </div>

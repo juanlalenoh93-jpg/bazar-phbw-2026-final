@@ -191,11 +191,11 @@ function FinanceBox({
   };
   const t = toneMap[tone];
   return (
-    <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-xl border bg-muted/30 p-2.5">
+    <div className="flex items-center gap-2 rounded-xl border bg-muted/30 p-2">
       <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${t.bg} ${t.text}`}>{icon}</div>
-      <div className="min-w-0 flex-1">
+      <div>
         <div className="whitespace-nowrap text-[10px] text-muted-foreground">{label}</div>
-        <div className={`overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold leading-tight ${t.text}`}>{fmtIDR(value)}</div>
+        <div className={`whitespace-nowrap text-[13px] font-bold leading-tight ${t.text}`}>{fmtIDR(value)}</div>
       </div>
     </div>
   );
