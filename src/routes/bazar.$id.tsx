@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, BarChart3, Lightbulb, Wallet, FileCheck2, CircleDollarSign, Banknote, UserRound } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
-  allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuPendingQty, menuRemaining, useLogo,
+  allCustomersGlobal, addCustomerToMaster, menuSoldQty, menuOrderedQty, menuNotTaken, bazarMenuSummary, useLogo,
   type MenuItem, type Order, type Sale,
 } from "@/lib/storage";
 import { ORGANIZATION_NAME, useWorkspaceHeader } from "@/lib/branding";
@@ -157,22 +157,22 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  const [qty, setQty] = useState("");
   const [saving, setSaving] = useState(false);
+  const [searchMenu, setSearchMenu] = useState("");
 
-  const reset = () => { setEditId(null); setName(""); setPrice(""); setQty(""); };
-  const openEdit = (m: MenuItem) => { setEditId(m.id); setName(m.name); setPrice(String(m.price)); setQty(String(m.qty)); setOpen(true); };
+  const reset = () => { setEditId(null); setName(""); setPrice(""); };
+  const openEdit = (m: MenuItem) => { setEditId(m.id); setName(m.name); setPrice(String(m.price)); setOpen(true); };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Nama menu wajib");
     if (saving) return;
     setSaving(true);
-    const newMenu: MenuItem = { id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: +qty || 0, createdAt: Date.now() };
+    const newMenu: MenuItem = { id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: 0, createdAt: Date.now() };
     setDB((d) => {
       if (editId) {
         const m = d.menus.find((x) => x.id === editId);
-        if (m) { m.name = name.trim(); m.price = +price || 0; m.qty = +qty || 0; }
+        if (m) { m.name = name.trim(); m.price = +price || 0; }
       } else {
         d.menus.push(newMenu);
       }
@@ -182,22 +182,26 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
     setSaving(false);
   };
 
+  const filteredMenus = useMemo(
+    () => menus.filter((m) => m.name.toLowerCase().includes(searchMenu.trim().toLowerCase())),
+    [menus, searchMenu],
+  );
+
+  const summary = useMemo(() => bazarMenuSummary(db, bazarId), [db, bazarId]);
+
   return (
     <div className="space-y-3">
       {isAdmin && (
         <div className="flex justify-end">
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Menu</Button>
+              <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Menu Baru</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>{editId ? "Edit" : "Tambah"} Menu</DialogTitle></DialogHeader>
               <form onSubmit={submit} className="space-y-3">
                 <div><Label>Nama Menu</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Harga Jual</Label><Input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))} /></div>
-                  <div><Label>Qty / Porsi Awal</Label><Input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/[^\d]/g, ""))} /></div>
-                </div>
+                <div><Label>Harga Jual</Label><Input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))} /></div>
                 <DialogFooter><Button type="submit" size="sm" disabled={saving}>Simpan</Button></DialogFooter>
               </form>
             </DialogContent>
@@ -205,33 +209,106 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
         </div>
       )}
 
-      {menus.length === 0 ? <Empty text="Belum ada menu untuk bazar ini." /> : (
+      {menus.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchMenu}
+            onChange={(e) => setSearchMenu(e.target.value)}
+            placeholder="Cari menu..."
+            className="pl-9"
+          />
+        </div>
+      )}
+
+      {menus.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800">
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="text-xs">
+            <div className="font-semibold">Statistik menu dihitung otomatis</div>
+            <div className="text-emerald-700/80">Berdasarkan data pesanan dan penjualan pada bazar ini.</div>
+          </div>
+        </div>
+      )}
+
+      {menus.length === 0 ? <Empty text="Belum ada menu untuk bazar ini." /> : filteredMenus.length === 0 ? <Empty text="Tidak ada menu dengan nama itu." /> : (
         <div className="grid gap-2">
-          {menus.map((m) => {
+          {filteredMenus.map((m) => {
             const sold = menuSoldQty(db, m.id);
-            const pending = menuPendingQty(db, m.id);
-            const remaining = menuRemaining(db, m.id);
-            const habis = m.qty > 0 && remaining === 0;
+            const ordered = menuOrderedQty(db, m.id);
+            const notTaken = menuNotTaken(db, m.id);
             return (
-              <div key={m.id} className="flex items-center justify-between rounded-xl border bg-card p-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 font-medium">
-                    <span className="truncate">{m.name}</span>
-                    {habis && <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><CheckCircle2 className="h-3 w-3" /> Habis</span>}
+              <div key={m.id} className="flex items-center justify-between gap-2 rounded-xl border bg-card p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate">{m.name}</div>
+                  <div className="text-xs text-muted-foreground">{fmtIDR(m.price)}</div>
+                </div>
+                <div className="flex shrink-0 items-center gap-3 text-xs">
+                  <div className="flex items-center gap-1">
+                    <ClipboardList className="h-3.5 w-3.5 text-blue-500" />
+                    <div>
+                      <div className="text-muted-foreground">Pesanan</div>
+                      <div className="font-semibold">{ordered}</div>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {fmtIDR(m.price)} · Terjual {sold} · Pending {pending} · <b className={remaining === 0 ? "text-destructive" : "text-emerald-700"}>Sisa {remaining}</b>/{m.qty}
+                  <div className="flex items-center gap-1">
+                    <ShoppingCart className="h-3.5 w-3.5 text-emerald-600" />
+                    <div>
+                      <div className="text-muted-foreground">Terjual</div>
+                      <div className="font-semibold">{sold}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-amber-500" />
+                    <div>
+                      <div className="text-muted-foreground">Belum diambil</div>
+                      <div className="font-semibold">{notTaken}</div>
+                    </div>
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex gap-1">
+                  <div className="flex shrink-0 gap-1">
                     <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
-                    <PinConfirmDelete label={m.name} requirePin={m.qty > 0 || sold > 0 || pending > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
+                    <PinConfirmDelete label={m.name} requirePin={sold > 0 || ordered > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
                   </div>
                 )}
               </div>
             );
           })}
+          <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 p-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+                <BarChart3 className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold truncate">Ringkasan Menu</div>
+                <div className="text-xs text-muted-foreground">Total semua menu</div>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <ClipboardList className="h-3.5 w-3.5 text-blue-500" />
+                <div>
+                  <div className="text-muted-foreground">Pesanan</div>
+                  <div className="font-semibold">{summary.ordered}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <ShoppingCart className="h-3.5 w-3.5 text-emerald-600" />
+                <div>
+                  <div className="text-muted-foreground">Terjual</div>
+                  <div className="font-semibold">{summary.sold}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                <div>
+                  <div className="text-muted-foreground">Belum diambil</div>
+                  <div className="font-semibold">{summary.notTaken}</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -273,13 +350,6 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
       .map(([menuId, q]) => ({ menuId, qty: +q || 0 }))
       .filter((i) => i.qty > 0);
     if (items.length === 0) return toast.error("Pilih minimal 1 menu");
-    for (const it of items) {
-      const rem = menuRemaining(db, it.menuId);
-      if (it.qty > rem) {
-        const m = menus.find((x) => x.id === it.menuId);
-        return toast.error(`Qty ${m?.name} tidak cukup, Sisa ${rem}`);
-      }
-    }
     const dup = db.orders.some((o) =>
       o.bazarId === bazarId && !o.soldAt && o.items.some((i) => i.qty > 0)
       && o.customer.trim().toLowerCase() === trimmed.toLowerCase());
@@ -330,24 +400,20 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
                 <div className="space-y-2">
                   <Label>Menu & Qty Pesan</Label>
                   {menus.map((m) => {
-                    const rem = menuRemaining(db, m.id);
-                    const v = +(picks[m.id] || 0);
-                    const over = v > rem;
                     return (
-                      <div key={m.id} className={`rounded-lg border p-2 ${over ? "border-destructive bg-destructive/5" : ""}`}>
+                      <div key={m.id} className="rounded-lg border p-2">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 text-sm min-w-0">
                             <div className="font-medium truncate">{m.name}</div>
-                            <div className="text-xs text-muted-foreground">{fmtIDR(m.price)} · Sisa {rem}</div>
+                            <div className="text-xs text-muted-foreground">{fmtIDR(m.price)}</div>
                           </div>
                           <Input className="w-20" inputMode="numeric" placeholder="0" value={picks[m.id] || ""}
                             onChange={(e) => {
                               const raw = e.target.value.replace(/[^\d]/g, "");
-                              const num = Math.min(+raw || 0, rem);
+                              const num = +raw || 0;
                               setPicks((p) => ({ ...p, [m.id]: num ? String(num) : "" }));
                             }} />
                         </div>
-                        {over && <p className="mt-1 text-xs font-medium text-destructive">Qty {m.name} tidak cukup, Sisa {rem}</p>}
                       </div>
                     );
                   })}
@@ -449,36 +515,60 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
   const db = useDB();
   const displayItems = useMemo(() => orderDisplayItems(db, order, menus), [db, order, menus]);
   const status = useMemo(() => orderStatusInfo(db, order), [db, order]);
+  const totalItem = useMemo(() => displayItems.reduce((s, i) => s + i.originalQty, 0), [displayItems]);
+  const totalPesanan = useMemo(() => displayItems.reduce((s, i) => s + i.price * i.originalQty, 0), [displayItems]);
+  const initial = order.customer.trim().charAt(0).toUpperCase() || "?";
 
   return (
     <div className={`rounded-2xl border p-4 ${status.fullSold ? "border-emerald-200 bg-emerald-50/40" : status.partialSold ? "border-amber-200 bg-amber-50/40" : "bg-card"}`}>
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-semibold truncate">{order.customer}</div>
-          <div className="text-xs text-muted-foreground">{fmtDateTime(order.createdAt)}</div>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            {initial}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold truncate">{order.customer}</div>
+            <div className="text-xs text-muted-foreground">{fmtDateTime(order.createdAt)}</div>
+          </div>
         </div>
         {status.fullSold ? (
           <Badge className="gap-1 bg-emerald-600"><CheckCircle2 className="h-3 w-3" /> {status.label}</Badge>
         ) : status.partialSold ? (
           <Badge className="bg-amber-500 text-white">{status.label}</Badge>
         ) : (
-          <Badge variant="secondary">{status.label}</Badge>
+          <Badge className="bg-muted text-muted-foreground hover:bg-muted">{status.label}</Badge>
         )}
       </div>
       <div className="mt-3 space-y-1 text-sm">
         {displayItems.map((i) => (
-          <div key={i.menuId} className="rounded-md bg-muted/50 px-2 py-1">
-            <div className="flex justify-between">
-              <span>{i.name} × {i.originalQty}</span>
-              <span className="text-muted-foreground">{fmtIDR(i.price * i.originalQty)}</span>
-            </div>
-            {(i.soldQty > 0 || status.partialSold || status.fullSold) && (
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                Terjual {i.soldQty} · Sisa {i.remainingQty}
-              </div>
-            )}
+          <div key={i.menuId} className="flex justify-between px-1 py-0.5">
+            <span>{i.name} × {i.originalQty}</span>
+            <span className="text-muted-foreground">{fmtIDR(i.price * i.originalQty)}</span>
           </div>
         ))}
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-2.5 text-xs">
+        <div className="flex items-center gap-1.5">
+          <ClipboardList className="h-4 w-4 text-foreground/70" />
+          <div>
+            <div className="text-muted-foreground">Total Item</div>
+            <div className="font-semibold">{totalItem}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <FileCheck2 className="h-4 w-4 text-foreground/70" />
+          <div>
+            <div className="text-muted-foreground">Total Pesanan</div>
+            <div className="font-semibold">{fmtIDR(totalPesanan)}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <CheckCircle2 className="h-4 w-4 text-foreground/70" />
+          <div>
+            <div className="text-muted-foreground">Status</div>
+            <div className={`font-semibold ${status.fullSold ? "text-emerald-600" : status.partialSold ? "text-amber-600" : "text-muted-foreground"}`}>{status.label}</div>
+          </div>
+        </div>
       </div>
       {isAdmin && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -507,7 +597,6 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
 }
 
 function EditOrderDialog({ order, menus }: { order: Order; menus: MenuItem[] }) {
-  const db = useDB();
   const [open, setOpen] = useState(false);
   const [picks, setPicks] = useState<Record<string, string>>(() =>
     Object.fromEntries(order.items.map((i) => [i.menuId, String(i.qty)])),
@@ -519,13 +608,6 @@ function EditOrderDialog({ order, menus }: { order: Order; menus: MenuItem[] }) 
     if (saving) return;
     const items = menus.map((m) => ({ menuId: m.id, qty: +(picks[m.id] || 0) || 0 })).filter((i) => i.qty > 0);
     if (items.length === 0) return toast.error("Minimal 1 menu");
-    for (const it of items) {
-      const rem = menuRemaining(db, it.menuId, order.id);
-      if (it.qty > rem) {
-        const m = menus.find((x) => x.id === it.menuId);
-        return toast.error(`Qty ${m?.name} tidak cukup, Sisa ${rem}`);
-      }
-    }
     setSaving(true);
     setDB((d) => { const o = d.orders.find((x) => x.id === order.id); if (o) o.items = items; });
     toast.success("Pesanan diperbarui");
@@ -540,24 +622,20 @@ function EditOrderDialog({ order, menus }: { order: Order; menus: MenuItem[] }) 
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-2">
             {menus.map((m) => {
-              const rem = menuRemaining(db, m.id, order.id);
-              const v = +(picks[m.id] || 0);
-              const over = v > rem;
               return (
-                <div key={m.id} className={`rounded-lg border p-2 ${over ? "border-destructive bg-destructive/5" : ""}`}>
+                <div key={m.id} className="rounded-lg border p-2">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 text-sm min-w-0">
                       <div className="font-medium truncate">{m.name}</div>
-                      <div className="text-xs text-muted-foreground">{fmtIDR(m.price)} · Sisa {rem}</div>
+                      <div className="text-xs text-muted-foreground">{fmtIDR(m.price)}</div>
                     </div>
                     <Input className="w-20" inputMode="numeric" placeholder="0" value={picks[m.id] || ""}
                       onChange={(e) => {
                         const raw = e.target.value.replace(/[^\d]/g, "");
-                        const num = Math.min(+raw || 0, rem);
+                        const num = +raw || 0;
                         setPicks((p) => ({ ...p, [m.id]: num ? String(num) : "" }));
                       }} />
                   </div>
-                  {over && <p className="mt-1 text-xs font-medium text-destructive">Qty {m.name} tidak cukup, Sisa {rem}</p>}
                 </div>
               );
             })}
@@ -850,6 +928,34 @@ function PenjualanTab({ sales, bazarName, isAdmin }: { sales: Sale[]; bazarName:
   );
 }
 
+function StatBox({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone: "green" | "blue" | "purple" | "orange";
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    green: "bg-emerald-100 text-emerald-700",
+    blue: "bg-blue-100 text-blue-700",
+    purple: "bg-purple-100 text-purple-700",
+    orange: "bg-orange-100 text-orange-700",
+  };
+  return (
+    <div className={`flex items-center gap-2 rounded-xl p-2.5 ${toneClasses[tone]}`}>
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/60">{icon}</div>
+      <div className="min-w-0">
+        <div className="text-[11px] opacity-80">{label}</div>
+        <div className="truncate text-sm font-semibold">{value}</div>
+      </div>
+    </div>
+  );
+}
+
 function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string; isAdmin: boolean }) {
   const db = useDB();
   const outstanding = saleOutstanding(db, sale.id);
@@ -919,20 +1025,36 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
           <div className="font-semibold">{sale.customer}</div>
           <div className="text-xs text-muted-foreground">{fmtDateTime(sale.createdAt)}</div>
         </div>
-        <Badge className={status === "LUNAS" ? "bg-primary" : "bg-warning text-warning-foreground"}>{status}</Badge>
+        <Badge className={status === "LUNAS" ? "bg-emerald-600" : "bg-amber-500 text-white"}>{status}</Badge>
       </div>
       <div className="mt-3 space-y-1 text-sm">
         {sale.items.map((i, idx) => (
-          <div key={idx} className="flex justify-between rounded-md bg-muted/50 px-2 py-1">
+          <div key={idx} className="flex justify-between px-1 py-0.5">
             <span>{i.name} × {i.qty}</span>
             <span>{fmtIDR(i.price * i.qty)}</span>
           </div>
         ))}
       </div>
-      <div className="mt-2 text-sm">
-        Total: <b>{fmtIDR(sale.total)}</b> · Bayar: <b>{fmtIDR(sale.paid)}</b> · Metode: <b>{sale.method === "cash" ? "Cash" : "Transfer"}</b>
-        {outstanding > 0 && <> · Sisa: <b className="text-warning">{fmtIDR(outstanding)}</b></>}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {status === "LUNAS" ? (
+          <>
+            <StatBox icon={<FileCheck2 className="h-4 w-4" />} label="Total" value={fmtIDR(sale.total)} tone="green" />
+            <StatBox icon={<CircleDollarSign className="h-4 w-4" />} label="Bayar" value={fmtIDR(sale.paid)} tone="blue" />
+            <StatBox icon={<Wallet className="h-4 w-4" />} label="Metode" value={sale.method === "cash" ? "Cash" : "Transfer"} tone="purple" />
+          </>
+        ) : (
+          <>
+            <StatBox icon={<FileCheck2 className="h-4 w-4" />} label="Total" value={fmtIDR(sale.total)} tone="green" />
+            <StatBox icon={<CircleDollarSign className="h-4 w-4" />} label="Bayar" value={fmtIDR(sale.paid)} tone="blue" />
+            <StatBox icon={<UserRound className="h-4 w-4" />} label="Sisa" value={fmtIDR(outstanding)} tone="orange" />
+          </>
+        )}
       </div>
+      {status === "PIUTANG" && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Banknote className="h-3.5 w-3.5" /> Metode: <b>{sale.method === "cash" ? "Cash" : "Transfer"}</b>
+        </div>
+      )}
       {sale.note && <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">📝 {sale.note}</div>}
       {sale.proof && (
         <a href={sale.proof} target="_blank" rel="noreferrer" className="mt-2 inline-block">
@@ -961,6 +1083,8 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
     expenses.filter((e) => e.name.toLowerCase().includes(searchName.trim().toLowerCase())),
     [expenses, searchName],
   );
+
+  const totalPengeluaran = useMemo(() => expenses.reduce((s, e) => s + e.amount, 0), [expenses]);
 
   const reset = () => { setEditId(null); setName(""); setQty(""); setAmount(""); };
 
@@ -1016,27 +1140,59 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
         </div>
       )}
 
+      {expenses.length > 0 && (
+        <div className="flex items-center gap-3 rounded-2xl border bg-card p-4">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600">
+            <Wallet className="h-5 w-5" />
+          </div>
+          <div className="flex flex-1 items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Ringkasan Pengeluaran</div>
+              <div className="text-xs text-muted-foreground">Total Pengeluaran</div>
+              <div className="text-lg font-bold text-destructive">{fmtIDR(totalPengeluaran)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">Jumlah Transaksi</div>
+              <div className="text-lg font-bold">{expenses.length}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {expenses.length === 0 ? <Empty text="Belum ada pengeluaran." /> : filteredExpenses.length === 0 ? <Empty text="Tidak ada pengeluaran dengan nama belanjaan itu." /> : (
         <div className="grid gap-2">
           {filteredExpenses.map((e) => (
-            <div key={e.id} className="flex items-center justify-between rounded-xl border bg-card p-3">
-              <div>
-                <div className="font-medium">{e.name}</div>
-                <div className="text-xs text-muted-foreground">{fmtDate(e.createdAt)} · Qty {e.qty || 1}</div>
+            <div key={e.id} className="flex items-start justify-between gap-2 rounded-xl border bg-card p-3">
+              <div className="min-w-0">
+                <div className="font-semibold">{e.name}</div>
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                  <Receipt className="h-3.5 w-3.5" /> {fmtDate(e.createdAt)}
+                </div>
+                <div className="text-xs text-muted-foreground">· Qty {e.qty || 1}</div>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="font-semibold text-destructive">{fmtIDR(e.amount)}</span>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <span className="font-bold text-destructive">{fmtIDR(e.amount)}</span>
                 {isAdmin && (
-                  <>
-                    <Button size="icon" variant="ghost" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
-                      <Pencil className="h-4 w-4" />
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit
                     </Button>
                     <PinConfirmDelete label={e.name} requirePin={(e.amount || 0) > 0} onConfirm={() => { setDB((d) => { d.expenses = d.expenses.filter((x) => x.id !== e.id); }); toast.success("Pengeluaran dihapus"); }} />
-                  </>
+                  </div>
                 )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {expenses.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800">
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="text-xs">
+            <div className="font-semibold">Catatan</div>
+            <div className="text-emerald-700/80">Pengeluaran digunakan untuk mencatat semua biaya dan belanjaan bazar.</div>
+          </div>
         </div>
       )}
     </div>

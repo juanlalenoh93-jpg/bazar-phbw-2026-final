@@ -349,10 +349,39 @@ export function menuPendingQty(d: DB, menuId: string, excludeOrderId?: string): 
   return total;
 }
 
-export function menuRemaining(d: DB, menuId: string, excludeOrderId?: string): number {
-  const m = d.menus.find((x) => x.id === menuId);
-  if (!m) return 0;
-  return Math.max(0, m.qty - menuSoldQty(d, menuId) - menuPendingQty(d, menuId, excludeOrderId));
+// Stok menu tidak lagi dibatasi. Fungsi ini dipertahankan agar pemanggil lama
+// (yang memvalidasi qty terhadap sisa stok) tetap aman secara matematis:
+// Math.min(x, Infinity) = x, dan (v > Infinity) selalu false.
+export function menuRemaining(_d: DB, _menuId: string, _excludeOrderId?: string): number {
+  return Infinity;
+}
+
+// Total qty menu yang pernah masuk ke pesanan (baik masih pending maupun sudah terjual).
+export function menuOrderedQty(d: DB, menuId: string): number {
+  let total = 0;
+  for (const o of d.orders) {
+    for (const it of o.items) {
+      if (it.menuId === menuId) total += it.qty;
+    }
+  }
+  return total + menuSoldQty(d, menuId);
+}
+
+// Qty yang sudah dipesan tapi belum diambil/terjual ("Belum diambil" = Pesanan - Terjual).
+export function menuNotTaken(d: DB, menuId: string): number {
+  return Math.max(0, menuOrderedQty(d, menuId) - menuSoldQty(d, menuId));
+}
+
+// Ringkasan total seluruh menu pada satu bazar, untuk baris "Ringkasan Menu".
+export function bazarMenuSummary(d: DB, bazarId: string): { ordered: number; sold: number; notTaken: number } {
+  const bazarMenus = d.menus.filter((m) => m.bazarId === bazarId);
+  let ordered = 0;
+  let sold = 0;
+  for (const m of bazarMenus) {
+    ordered += menuOrderedQty(d, m.id);
+    sold += menuSoldQty(d, m.id);
+  }
+  return { ordered, sold, notTaken: Math.max(0, ordered - sold) };
 }
 
 // =============== Customer Master (global) ===============

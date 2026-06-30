@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2, Store } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Store, ShoppingCart, Wallet, Users, TrendingUp, Landmark } from "lucide-react";
 import { useDB, setDB, uid, fmtDate, fmtIDR, bazarStats } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -137,18 +137,21 @@ function BazarList() {
               <div key={b.id} className="rounded-2xl border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
                   <Link to="/bazar/$id" params={{ id: b.id }} className="min-w-0 flex-1">
-                    <div className="font-semibold text-foreground">{b.name}</div>
+                    <div className="font-bold text-lg text-foreground">{b.name}</div>
                     <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
-                    <div className="mt-3 rounded-xl bg-muted/40 p-3 text-xs">
-                      <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-                        <FinanceLine label="Penjualan" value={s.totalSales} />
-                        <FinanceLine label="Pengeluaran" value={s.totalExpense} tone="bad" />
-                        <FinanceLine label="Piutang" value={s.totalPiutang} tone="warn" />
-                        <FinanceLine label="Keuntungan" value={s.profit} tone="good" />
+                    <div className="mt-3 rounded-xl border bg-muted/20 p-3">
+                      <div className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground">RINGKASAN KEUANGAN</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <FinanceBox icon={<ShoppingCart className="h-4 w-4" />} label="Penjualan" value={fmtIDR(s.totalSales)} tone="green" />
+                        <FinanceBox icon={<Wallet className="h-4 w-4" />} label="Pengeluaran" value={fmtIDR(s.totalExpense)} tone="red" />
+                        <FinanceBox icon={<Users className="h-4 w-4" />} label="Piutang" value={fmtIDR(s.totalPiutang)} tone="orange" />
+                        <FinanceBox icon={<TrendingUp className="h-4 w-4" />} label="Keuntungan" value={fmtIDR(s.profit)} tone="green" />
                       </div>
-                      <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 border-t pt-2 sm:grid-cols-2">
-                        <FinanceLine label="Cash" value={s.totalCash} />
-                        <FinanceLine label="Transfer" value={s.totalTransfer} />
+                      <div className="my-3 border-t" />
+                      <div className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground">METODE PEMBAYARAN</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <FinanceBox icon={<Wallet className="h-4 w-4" />} label="Cash" value={fmtIDR(s.totalCash)} tone="green" />
+                        <FinanceBox icon={<Landmark className="h-4 w-4" />} label="Transfer" value={fmtIDR(s.totalTransfer)} tone="blue" />
                       </div>
                     </div>
                   </Link>
@@ -170,21 +173,36 @@ function BazarList() {
   );
 }
 
-function FinanceLine({
+function FinanceBox({
+  icon,
   label,
   value,
   tone,
 }: {
+  icon: React.ReactNode;
   label: string;
-  value: number;
-  tone?: "good" | "bad" | "warn";
+  value: string;
+  tone: "green" | "red" | "orange" | "blue";
 }) {
-  const cls = tone === "good" ? "text-primary" : tone === "bad" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-foreground";
+  const toneClasses: Record<typeof tone, string> = {
+    green: "bg-emerald-50 text-emerald-700",
+    red: "bg-rose-50 text-rose-700",
+    orange: "bg-orange-50 text-orange-700",
+    blue: "bg-blue-50 text-blue-700",
+  };
+  const valueClasses: Record<typeof tone, string> = {
+    green: "text-emerald-700",
+    red: "text-rose-600",
+    orange: "text-orange-600",
+    blue: "text-blue-700",
+  };
   return (
-    <div className="grid grid-cols-[88px_8px_1fr] items-center gap-1">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-muted-foreground">:</span>
-      <b className={`text-right ${cls}`}>{fmtIDR(value)}</b>
+    <div className="flex items-center gap-2 rounded-xl border bg-card p-2.5">
+      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${toneClasses[tone]}`}>{icon}</div>
+      <div className="min-w-0 text-left">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className={`truncate text-sm font-bold ${valueClasses[tone]}`}>{value}</div>
+      </div>
     </div>
   );
 }
