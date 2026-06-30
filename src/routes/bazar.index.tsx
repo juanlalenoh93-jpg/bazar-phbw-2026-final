@@ -135,13 +135,13 @@ function BazarList() {
             const s = bazarStats(db, b.id);
             return (
               <div key={b.id} className="rounded-[16px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
-                <div className="flex items-start justify-between gap-3">
-                  <Link to="/bazar/$id" params={{ id: b.id }} className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3" style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "start", gap: "12px" }}>
+                  <Link to="/bazar/$id" params={{ id: b.id }} className="min-w-0" style={{ display: "block", width: "100%", minWidth: 0 }}>
                     <div className="font-semibold text-foreground">{b.name}</div>
                     <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
 
                     <div className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ringkasan Keuangan</div>
-                    <div className="mt-1.5 grid w-full grid-cols-2 gap-2">
+                    <div className="mt-1.5 grid gap-2" style={{ width: "100%", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
                       <FinanceBox icon={<ShoppingCart className="h-4 w-4" />} tone="emerald" label="Penjualan" value={s.totalSales} />
                       <FinanceBox icon={<Wallet className="h-4 w-4" />} tone="rose" label="Pengeluaran" value={s.totalExpense} />
                       <FinanceBox icon={<Users className="h-4 w-4" />} tone="amber" label="Piutang" value={s.totalPiutang} />
@@ -149,7 +149,7 @@ function BazarList() {
                     </div>
 
                     <div className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Metode Pembayaran</div>
-                    <div className="mt-1.5 grid w-full grid-cols-2 gap-2">
+                    <div className="mt-1.5 grid gap-2" style={{ width: "100%", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
                       <FinanceBox icon={<Wallet className="h-4 w-4" />} tone="emerald" label="Cash" value={s.totalCash} />
                       <FinanceBox icon={<Landmark className="h-4 w-4" />} tone="blue" label="Transfer" value={s.totalTransfer} />
                     </div>
@@ -191,7 +191,7 @@ function FinanceBox({
   };
   const t = toneMap[tone];
   return (
-    <div className="flex w-full min-w-0 items-center gap-1.5 rounded-xl border bg-muted/30 p-2">
+    <div className="flex items-center gap-1.5 rounded-xl border bg-muted/30 p-2" style={{ width: "100%", minWidth: 0 }}>
       <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${t.bg} ${t.text}`}>{icon}</div>
       <div className="min-w-0 flex-1">
         <div className="whitespace-nowrap text-[10px] text-muted-foreground">{label}</div>
