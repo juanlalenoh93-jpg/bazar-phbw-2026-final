@@ -873,27 +873,65 @@ function GantiCustomerDialog({ order, menus }: { order: Order; menus: MenuItem[]
 }
 
 /* ============ PENJUALAN TAB ============ */
+type SaleStatusFilter = "all" | "lunas" | "piutang";
+
 function PenjualanTab({ sales, bazarName, isAdmin }: { sales: Sale[]; bazarName: string; isAdmin: boolean }) {
+  const db = useDB();
   const [searchCustomer, setSearchCustomer] = useState("");
+  const [statusFilter, setStatusFilter] = useState<SaleStatusFilter>("all");
+
   const filteredSales = useMemo(() =>
-    sales.filter((s) => s.customer.toLowerCase().includes(searchCustomer.trim().toLowerCase())),
-    [sales, searchCustomer],
+    sales.filter((s) => {
+      const nameMatch = s.customer.toLowerCase().includes(searchCustomer.trim().toLowerCase());
+      if (!nameMatch) return false;
+      if (statusFilter === "all") return true;
+      const isPiutang = saleOutstanding(db, s.id) > 0;
+      if (statusFilter === "piutang") return isPiutang;
+      if (statusFilter === "lunas") return !isPiutang;
+      return true;
+    }),
+    [sales, searchCustomer, statusFilter, db],
   );
+
+  const filterButtons: { key: SaleStatusFilter; label: string }[] = [
+    { key: "all", label: "Semua" },
+    { key: "lunas", label: "Lunas" },
+    { key: "piutang", label: "Piutang" },
+  ];
 
   if (sales.length === 0) return <Empty text="Belum ada penjualan." />;
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchCustomer}
-          onChange={(e) => setSearchCustomer(e.target.value)}
-          placeholder="Cari nama customer..."
-          className="pl-9"
-        />
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchCustomer}
+            onChange={(e) => setSearchCustomer(e.target.value)}
+            placeholder="Cari nama customer..."
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+          {filterButtons.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setStatusFilter(key)}
+              className={`inline-flex shrink-0 items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                statusFilter === key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {key !== "all" && <Filter className="h-2.5 w-2.5" />}
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       {filteredSales.length === 0 ? (
-        <Empty text="Tidak ada penjualan dengan nama customer itu." />
+        <Empty text="Tidak ada penjualan yang sesuai filter." />
       ) : (
         <div className="grid gap-3">
           {filteredSales.map((s) => <SaleCard key={s.id} sale={s} bazarName={bazarName} isAdmin={isAdmin} />)}
