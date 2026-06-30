@@ -141,7 +141,7 @@ function BazarList() {
                     <div className="text-xs text-muted-foreground">{fmtDate(new Date(b.date).getTime())}</div>
 
                     <div className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ringkasan Keuangan</div>
-                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    <div className="mt-1.5 grid w-full grid-cols-2 gap-2">
                       <FinanceBox icon={<ShoppingCart className="h-4 w-4" />} tone="emerald" label="Penjualan" value={s.totalSales} />
                       <FinanceBox icon={<Wallet className="h-4 w-4" />} tone="rose" label="Pengeluaran" value={s.totalExpense} />
                       <FinanceBox icon={<Users className="h-4 w-4" />} tone="amber" label="Piutang" value={s.totalPiutang} />
@@ -149,7 +149,7 @@ function BazarList() {
                     </div>
 
                     <div className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Metode Pembayaran</div>
-                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    <div className="mt-1.5 grid w-full grid-cols-2 gap-2">
                       <FinanceBox icon={<Wallet className="h-4 w-4" />} tone="emerald" label="Cash" value={s.totalCash} />
                       <FinanceBox icon={<Landmark className="h-4 w-4" />} tone="blue" label="Transfer" value={s.totalTransfer} />
                     </div>
@@ -191,11 +191,11 @@ function FinanceBox({
   };
   const t = toneMap[tone];
   return (
-    <div className="flex w-full items-center gap-2 rounded-xl border bg-muted/30 p-2">
-      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${t.bg} ${t.text}`}>{icon}</div>
+    <div className="flex w-full min-w-0 items-center gap-1.5 rounded-xl border bg-muted/30 p-2">
+      <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${t.bg} ${t.text}`}>{icon}</div>
       <div className="min-w-0 flex-1">
         <div className="whitespace-nowrap text-[10px] text-muted-foreground">{label}</div>
-        <div className={`overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold leading-tight ${t.text}`}>{fmtIDR(value)}</div>
+        <div className={`break-words text-[12px] font-bold leading-tight ${t.text}`}>{fmtIDR(value)}</div>
       </div>
     </div>
   );
