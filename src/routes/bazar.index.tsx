@@ -199,9 +199,9 @@ function FinanceBox({
   return (
     <div className="flex items-center gap-2 rounded-xl border bg-card p-2.5">
       <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${toneClasses[tone]}`}>{icon}</div>
-      <div className="min-w-0 text-left">
+      <div className="min-w-0 flex-1 text-left">
         <div className="text-xs text-muted-foreground">{label}</div>
-        <div className={`truncate text-sm font-bold ${valueClasses[tone]}`}>{value}</div>
+        <div className={`break-words text-sm font-bold leading-tight ${valueClasses[tone]}`}>{value}</div>
       </div>
     </div>
   );
