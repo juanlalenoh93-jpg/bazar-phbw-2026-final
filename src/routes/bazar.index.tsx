@@ -239,7 +239,7 @@ function FinanceBox({
       </div>
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="text-sm text-muted-foreground">{label}</div>
-        <div className={`whitespace-nowrap text-xl font-bold leading-tight sm:text-2xl ${coloredValue ? t.text : "text-foreground"}`}>
+        <div className={`whitespace-nowrap text-[15px] font-bold leading-tight ${coloredValue ? t.text : "text-foreground"}`}>
           {fmtIDR(value)}
         </div>
       </div>
