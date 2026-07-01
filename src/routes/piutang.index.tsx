@@ -194,21 +194,22 @@ function PiutangList() {
               const initial = customer.trim().charAt(0).toUpperCase() || "?";
               return (
                 <Link
-                  key={customer}
-                  to="/piutang/$customer"
-                  params={{ customer: encodeURIComponent(customer) }}
-                  className="flex items-center gap-3 rounded-2xl border bg-card p-3 transition hover:border-emerald-500"
-                >
-                  <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-base font-semibold ${avatarColor(customer)}`}>
-                    {initial}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{customer}</div>
-                    <div className="text-xs text-muted-foreground">Klik untuk lihat rincian</div>
-                  </div>
-                  <span className="whitespace-nowrap font-bold text-amber-600">{fmtIDR(total)}</span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </Link>
+                  <Link
+  key={customer}
+  to="/piutang/$customer"
+  params={{ customer: encodeURIComponent(customer) }}
+  className="flex items-center gap-4 rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition hover:border-emerald-500"
+>
+  <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full text-base font-semibold ${avatarColor(customer)}`}>
+    {initial}
+  </div>
+  <div className="min-w-0 flex-1">
+    <div className="truncate font-bold text-slate-900">{customer}</div>
+    <div className="text-xs text-slate-500">Lihat rincian</div>
+  </div>
+  <span className="whitespace-nowrap font-bold text-amber-600">{fmtIDR(total)}</span>
+  <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
+</Link>
               );
             })}
             {filtered.length === 0 && (
