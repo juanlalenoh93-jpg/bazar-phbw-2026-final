@@ -105,7 +105,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
         {showHeader && <AppHeader />}
-        <main className="mx-auto max-w-5xl px-4 py-6">
+        <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
           <Outlet />
         </main>
         <Toaster richColors closeButton position="bottom-center" />

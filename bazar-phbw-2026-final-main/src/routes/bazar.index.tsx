@@ -99,7 +99,7 @@ function BazarList() {
         <ArrowLeft className="h-4 w-4" /> Kembali
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
             <Store className="h-6 w-6" />
@@ -112,7 +112,7 @@ function BazarList() {
         {isAdmin && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="lg" className="rounded-xl px-5" onClick={openCreate}>
+              <Button size="lg" className="w-full rounded-xl px-5 sm:w-auto" onClick={openCreate}>
                 <Plus className="h-5 w-5" /> Bazar Baru
               </Button>
             </DialogTrigger>
@@ -161,8 +161,8 @@ function BazarList() {
                 key={b.id}
                 className="rounded-[20px] border bg-card p-5 shadow-[0_2px_10px_rgba(0,0,0,.06)] transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,.08)] sm:p-6"
               >
-                <div className="flex items-start justify-between gap-4" style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "start", gap: "16px" }}>
-                  <Link to="/bazar/$id" params={{ id: b.id }} className="min-w-0" style={{ display: "block", width: "100%", minWidth: 0 }}>
+                <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                  <Link to="/bazar/$id" params={{ id: b.id }} className="block min-w-0 w-full">
                     <div className="flex items-center gap-2.5">
                       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                         <Store className="h-5 w-5" />
@@ -178,7 +178,7 @@ function BazarList() {
 
                     <div className="mt-4 rounded-2xl border border-border/70 p-4 sm:p-5">
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ringkasan Keuangan</div>
-                      <div className="mt-3 grid gap-4" style={{ width: "100%", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                      <div className="mt-3 grid w-full grid-cols-2 gap-3 sm:gap-4">
                         <FinanceBox icon={<ShoppingCart className="h-6 w-6" />} tone="emerald" label="Penjualan" value={s.totalSales} />
                         <FinanceBox icon={<Wallet className="h-6 w-6" />} tone="rose" label="Pengeluaran" value={s.totalExpense} />
                         <FinanceBox icon={<Users className="h-6 w-6" />} tone="amber" label="Piutang" value={s.totalPiutang} />
@@ -187,7 +187,7 @@ function BazarList() {
 
                       <div className="mt-5 border-t border-border/70 pt-4">
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metode Pembayaran</div>
-                        <div className="mt-3 grid gap-4" style={{ width: "100%", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                        <div className="mt-3 grid w-full grid-cols-2 gap-3 sm:gap-4">
                           <FinanceBox icon={<Wallet className="h-6 w-6" />} tone="emerald" label="Cash" value={s.totalCash} coloredValue={false} />
                           <FinanceBox icon={<Landmark className="h-6 w-6" />} tone="blue" label="Transfer" value={s.totalTransfer} coloredValue={false} />
                         </div>
@@ -233,13 +233,13 @@ function FinanceBox({
   };
   const t = toneMap[tone];
   return (
-    <div className="flex min-h-[100px] w-full items-center gap-4 overflow-hidden rounded-2xl border border-border/70 bg-white p-5">
-      <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${t.bg} ${t.text}`}>
+    <div className="flex min-h-[92px] w-full items-center gap-3 overflow-hidden rounded-2xl border border-border/70 bg-white p-3.5 sm:min-h-[100px] sm:gap-4 sm:p-5">
+      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${t.bg} ${t.text} sm:h-12 sm:w-12`}>
         {icon}
       </div>
       <div className="min-w-0 flex-1 overflow-hidden">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className={`whitespace-nowrap text-xl font-bold leading-tight sm:text-2xl ${coloredValue ? t.text : "text-foreground"}`}>
+        <div className="truncate text-xs text-muted-foreground sm:text-sm">{label}</div>
+        <div className={`truncate text-base font-bold leading-tight sm:text-xl md:text-2xl ${coloredValue ? t.text : "text-foreground"}`}>
           {fmtIDR(value)}
         </div>
       </div>
@@ -341,7 +341,7 @@ export function PinConfirmDelete({
 
   return (
     <>
-      <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={startDelete}>
+      <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={startDelete}>
         <Trash2 className="h-4 w-4" />
       </Button>
       <AlertDialog open={open} onOpenChange={(v) => { if (!v) reset(); else setOpen(true); }}>
