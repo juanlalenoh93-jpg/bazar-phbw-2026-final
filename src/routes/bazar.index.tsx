@@ -159,7 +159,7 @@ function BazarList() {
             return (
               <div
                 key={b.id}
-                className="rounded-[20px] border bg-card p-5 shadow-[0_2px_10px_rgba(0,0,0,.06)] transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,.08)] sm:p-6"
+                className="rounded-[20px] border bg-card p-4 shadow-[0_2px_10px_rgba(0,0,0,.06)] transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,.08)] sm:p-6"
               >
                 <div className="grid grid-cols-[1fr_auto] items-start gap-4">
                   <Link to="/bazar/$id" params={{ id: b.id }} className="block min-w-0 w-full">
@@ -176,9 +176,9 @@ function BazarList() {
                       </div>
                     </div>
 
-                    <div className="mt-4 rounded-2xl border border-border/70 p-4 sm:p-5">
+                    <div className="mt-4 rounded-2xl border border-border/70 p-3 sm:p-5">
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ringkasan Keuangan</div>
-                      <div className="mt-3 grid w-full grid-cols-2 gap-3 sm:gap-4">
+                      <div className="mt-3 grid w-full grid-cols-2 gap-2.5 sm:gap-4">
                         <FinanceBox icon={<ShoppingCart className="h-6 w-6" />} tone="emerald" label="Penjualan" value={s.totalSales} />
                         <FinanceBox icon={<Wallet className="h-6 w-6" />} tone="rose" label="Pengeluaran" value={s.totalExpense} />
                         <FinanceBox icon={<Users className="h-6 w-6" />} tone="amber" label="Piutang" value={s.totalPiutang} />
@@ -187,7 +187,7 @@ function BazarList() {
 
                       <div className="mt-5 border-t border-border/70 pt-4">
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metode Pembayaran</div>
-                        <div className="mt-3 grid w-full grid-cols-2 gap-3 sm:gap-4">
+                        <div className="mt-3 grid w-full grid-cols-2 gap-2.5 sm:gap-4">
                           <FinanceBox icon={<Wallet className="h-6 w-6" />} tone="emerald" label="Cash" value={s.totalCash} coloredValue={false} />
                           <FinanceBox icon={<Landmark className="h-6 w-6" />} tone="blue" label="Transfer" value={s.totalTransfer} coloredValue={false} />
                         </div>
@@ -233,13 +233,13 @@ function FinanceBox({
   };
   const t = toneMap[tone];
   return (
-    <div className="flex min-h-[92px] w-full items-center gap-3 overflow-hidden rounded-2xl border border-border/70 bg-white p-3.5 sm:min-h-[100px] sm:gap-4 sm:p-5">
-      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${t.bg} ${t.text} sm:h-12 sm:w-12`}>
+    <div className="flex w-full items-center gap-2.5 rounded-2xl border border-border/70 bg-white p-3 sm:gap-4 sm:p-5">
+      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${t.bg} ${t.text} sm:h-12 sm:w-12`}>
         {icon}
       </div>
-      <div className="min-w-0 flex-1 overflow-hidden">
-        <div className="truncate text-xs text-muted-foreground sm:text-sm">{label}</div>
-        <div className={`truncate text-base font-bold leading-tight sm:text-xl md:text-2xl ${coloredValue ? t.text : "text-foreground"}`}>
+      <div className="min-w-0 flex-1">
+        <div className="break-words text-xs text-muted-foreground sm:text-sm">{label}</div>
+        <div className={`break-words text-sm font-bold leading-tight sm:text-xl md:text-2xl ${coloredValue ? t.text : "text-foreground"}`}>
           {fmtIDR(value)}
         </div>
       </div>

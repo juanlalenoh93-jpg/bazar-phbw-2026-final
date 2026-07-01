@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-DGeXAQPT.js";var t=e(),n=()=>(0,t.jsx)(`div`,{className:`p-6`,children:`Bazar tidak ditemukan.`});export{n as notFoundComponent};
