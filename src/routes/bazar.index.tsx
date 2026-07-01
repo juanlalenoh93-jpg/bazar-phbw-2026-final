@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2, Store, ShoppingCart, Wallet, TrendingUp, Users, Landmark, Search, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Store, ShoppingCart, Wallet, TrendingUp, Users, Search, Calendar, ChevronRight } from "lucide-react";
 import { useDB, setDB, uid, fmtDate, fmtIDR, bazarStats } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,34 @@ export const Route = createFileRoute("/bazar/")({
 function BazarList() {
   const db = useDB();
   const { isAdmin } = useAuth();
-  const bazars = [...db.bazars].sort((a, b) => a.createdAt - b.createdAt);
+  
+  // Mengurutkan dari event terbaru ke terlama agar lebih efisien saat di-scroll di HP
+  const bazars = useMemo(() => [...db.bazars].sort((a, b) => b.createdAt - a.createdAt), [db.bazars]);
+  
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+
+  // Menghitung statistik akumulasi total global untuk 4 kotak atas sesuai foto komparasi
+  const globalStats = useMemo(() => {
+    let totalSales = 0;
+    let totalExpense = 0;
+    let totalPiutang = 0;
+    let profit = 0;
+
+    db.bazars.forEach((b) => {
+      const s = bazarStats(db, b.id);
+      totalSales += s.totalSales || 0;
+      totalExpense += s.totalExpense || 0;
+      totalPiutang += s.totalPiutang || 0;
+      profit += s.profit || 0;
+    });
+
+    return { totalSales, totalExpense, totalPiutang, profit };
+  }, [db]);
 
   const filteredBazars = useMemo(
     () => bazars.filter((b) => b.name.toLowerCase().includes(query.trim().toLowerCase())),
@@ -42,6 +63,7 @@ function BazarList() {
     setDate(new Date().toISOString().slice(0, 10));
     setOpen(true);
   };
+
   const openEdit = (id: string) => {
     const b = db.bazars.find((x) => x.id === id);
     if (!b) return;
@@ -56,7 +78,7 @@ function BazarList() {
     if (!name.trim()) return toast.error("Nama bazar wajib diisi");
     if (saving) return;
     setSaving(true);
-    const newBazar = { id: uid(), name: name.trim(), date, createdAt: Date.now() };
+    
     setDB((d) => {
       if (editId) {
         const b = d.bazars.find((x) => x.id === editId);
@@ -65,9 +87,10 @@ function BazarList() {
           b.date = date;
         }
       } else {
-        d.bazars.push(newBazar);
+        d.bazars.push({ id: uid(), name: name.trim(), date, createdAt: Date.now() });
       }
     });
+    
     toast.success(editId ? "Bazar diperbarui" : "Bazar ditambahkan");
     setOpen(false);
     setSaving(false);
@@ -94,43 +117,42 @@ function BazarList() {
   };
 
   return (
-    <div className="space-y-6">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Kembali
-      </Link>
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-            <Store className="h-6 w-6" />
-          </div>
+    <div className="space-y-5 pb-24 bg-slate-50/50 min-h-screen -mx-4 px-4 pt-2">
+      {/* Top Header Section */}
+      <div className="flex items-center justify-between gap-2 pt-2">
+        <div className="flex items-center gap-2.5">
+          <Link to="/" className="p-2 bg-white rounded-xl border border-slate-100 shadow-sm text-slate-600 active:scale-95 transition-transform">
+            <ArrowLeft className="h-4 w-4 stroke-[2.5]" />
+          </Link>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Daftar Bazar</h2>
-            <p className="text-sm text-muted-foreground">Kelola seluruh event bazar.</p>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Daftar Bazar</h1>
+            <p className="text-xs font-medium text-slate-400">Kelola seluruh event bazar</p>
           </div>
         </div>
+
         {isAdmin && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="lg" className="w-full rounded-xl px-5 sm:w-auto" onClick={openCreate}>
-                <Plus className="h-5 w-5" /> Bazar Baru
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-4 py-4.5 font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-transform text-xs" onClick={openCreate}>
+                <Plus className="h-4 w-4 stroke-[3]" /> Bazar Baru
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="rounded-3xl max-w-[90vw] sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>{editId ? "Edit Bazar" : "Tambah Bazar"}</DialogTitle>
+                <DialogTitle className="font-bold text-slate-900">{editId ? "Edit Bazar" : "Tambah Bazar"}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={submit} className="space-y-3">
-                <div>
-                  <Label>Nama Bazar</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bazar Natal 2026" />
+              <form onSubmit={submit} className="space-y-4 pt-1">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-600">Nama Bazar</Label>
+                  <Input className="rounded-xl border-slate-200" value={name} onChange={(e) => setName(e.target.value)} placeholder="Contoh: Bazar Wilayah IV" required />
                 </div>
-                <div>
-                  <Label>Tanggal</Label>
-                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-600">Tanggal Pelaksanaan</Label>
+                  <Input type="date" className="rounded-xl border-slate-200" value={date} onChange={(e) => setDate(e.target.value)} required />
                 </div>
-                <DialogFooter>
-                  <Button type="submit" disabled={saving}>Simpan</Button>
+                <DialogFooter className="flex flex-row gap-2 justify-end pt-2">
+                  <Button type="button" variant="outline" className="rounded-xl flex-1 sm:flex-none" onClick={() => setOpen(false)}>Batal</Button>
+                  <Button type="submit" className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl flex-1 sm:flex-none" disabled={saving}>Simpan</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -138,76 +160,75 @@ function BazarList() {
         )}
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" />
+      {/* Ringkasan Keuangan Global Grid (Sama Persis Seperti Foto Komparasi Anda) */}
+      <div className="space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-0.5">Ringkasan Keuangan</div>
+        <div className="grid grid-cols-2 gap-3">
+          <FinanceBox icon={<ShoppingCart className="h-5 w-5" />} tone="emerald" label="Penjualan" value={globalStats.totalSales} />
+          <FinanceBox icon={<Wallet className="h-5 w-5" />} tone="rose" label="Pengeluaran" value={globalStats.totalExpense} />
+          <FinanceBox icon={<Users className="h-5 w-5" />} tone="amber" label="Piutang" value={globalStats.totalPiutang} />
+          <FinanceBox icon={<TrendingUp className="h-5 w-5" />} tone="emerald_profit" label="Keuntungan" value={globalStats.profit} />
+        </div>
+      </div>
+
+      {/* Search Input Bar Element */}
+      <div className="relative mt-1">
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Cari nama bazar..."
-          className="h-12 rounded-2xl border-border/80 bg-card pl-11 pr-4 text-[15px] shadow-sm"
+          className="h-11 rounded-2xl border-slate-100 bg-white pl-10 pr-4 text-sm shadow-[0_2px_8px_rgba(0,0,0,0.015)] placeholder:text-slate-400 focus-visible:ring-emerald-600"
         />
       </div>
 
-      {bazars.length === 0 ? (
-        <EmptyState />
-      ) : filteredBazars.length === 0 ? (
-        <NoResultState query={query} />
-      ) : (
-        <div className="grid gap-4">
-          {filteredBazars.map((b) => {
-            const s = bazarStats(db, b.id);
-            return (
-              <div
-                key={b.id}
-                className="rounded-[20px] border bg-card p-4 shadow-[0_2px_10px_rgba(0,0,0,.06)] transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,.08)] sm:p-6"
-              >
-                <div className="grid grid-cols-[1fr_auto] items-start gap-4">
-                  <Link to="/bazar/$id" params={{ id: b.id }} className="block min-w-0 w-full">
-                    <div className="flex items-center gap-2.5">
-                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                        <Store className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-lg font-bold text-foreground">{b.name}</div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {fmtDate(new Date(b.date).getTime())}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 rounded-2xl border border-border/70 p-3 sm:p-5">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ringkasan Keuangan</div>
-                      <div className="mt-3 grid w-full grid-cols-2 gap-2.5 sm:gap-4">
-                        <FinanceBox icon={<ShoppingCart className="h-6 w-6" />} tone="emerald" label="Penjualan" value={s.totalSales} />
-                        <FinanceBox icon={<Wallet className="h-6 w-6" />} tone="rose" label="Pengeluaran" value={s.totalExpense} />
-                        <FinanceBox icon={<Users className="h-6 w-6" />} tone="amber" label="Piutang" value={s.totalPiutang} />
-                        <FinanceBox icon={<TrendingUp className="h-6 w-6" />} tone="emerald" label="Keuntungan" value={s.profit} />
-                      </div>
-
-                      <div className="mt-5 border-t border-border/70 pt-4">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metode Pembayaran</div>
-                        <div className="mt-3 grid w-full grid-cols-2 gap-2.5 sm:gap-4">
-                          <FinanceBox icon={<Wallet className="h-6 w-6" />} tone="emerald" label="Cash" value={s.totalCash} coloredValue={false} />
-                          <FinanceBox icon={<Landmark className="h-6 w-6" />} tone="blue" label="Transfer" value={s.totalTransfer} coloredValue={false} />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                  {isAdmin && (
-                    <div className="flex shrink-0 gap-1.5">
-                      <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl" onClick={() => openEdit(b.id)}>
-                        <Pencil className="h-4.5 w-4.5" />
-                      </Button>
-                      <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
-                    </div>
-                  )}
+      {/* List Rentetan Acara Bazar */}
+      <div className="space-y-2.5">
+        {bazars.length === 0 ? (
+          <div className="grid place-items-center rounded-2xl border-2 border-dashed border-slate-200 bg-white px-4 py-16 text-center shadow-sm">
+            <Store className="h-8 w-8 text-slate-300 stroke-[1.5]" />
+            <p className="mt-3 text-sm font-bold text-slate-700">Belum ada bazar</p>
+            <p className="text-xs text-slate-400 mt-0.5">Klik "Bazar Baru" untuk memulai pencatatan.</p>
+          </div>
+        ) : filteredBazars.length === 0 ? (
+          <div className="grid place-items-center rounded-2xl border-2 border-dashed border-slate-200 bg-white px-4 py-16 text-center shadow-sm">
+            <Search className="h-8 w-8 text-slate-300 stroke-[1.5]" />
+            <p className="mt-3 text-sm font-bold text-slate-700">Tidak ditemukan</p>
+            <p className="text-xs text-slate-400 mt-0.5">Tidak ada acara bernama "{query}".</p>
+          </div>
+        ) : (
+          filteredBazars.map((b) => (
+            <div key={b.id} className="group bg-white rounded-2xl border border-slate-100 p-4 flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:border-emerald-100 transition-all">
+              <Link to="/bazar/$id" params={{ id: b.id }} className="flex-1 flex items-center gap-3 min-w-0">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <Store className="h-5 w-5" />
                 </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-slate-800 text-sm sm:text-base truncate group-hover:text-emerald-800 transition-colors">{b.name}</h3>
+                  <div className="flex items-center gap-1 text-slate-400 text-[11px] mt-0.5 font-medium">
+                    <Calendar className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                    <span>{fmtDate(new Date(b.date).getTime())}</span>
+                  </div>
+                </div>
+              </Link>
+              
+              <div className="flex items-center gap-1 shrink-0 ml-1">
+                {isAdmin && (
+                  <>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-emerald-700 hover:bg-slate-50 rounded-lg" onClick={() => openEdit(b.id)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
+                  </>
+                )}
+                <Link to="/bazar/$id" params={{ id: b.id }} className="p-1 text-slate-300 hover:text-slate-600 transition-colors">
+                  <ChevronRight className="h-4 w-4 stroke-[3]" />
+                </Link>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -217,78 +238,35 @@ function FinanceBox({
   tone,
   label,
   value,
-  coloredValue = true,
 }: {
   icon: React.ReactNode;
-  tone: "emerald" | "rose" | "amber" | "blue";
+  tone: "emerald" | "rose" | "amber" | "emerald_profit";
   label: string;
   value: number;
-  coloredValue?: boolean;
 }) {
-  const toneMap: Record<string, { bg: string; text: string }> = {
-    emerald: { bg: "bg-emerald-100", text: "text-emerald-600" },
-    rose: { bg: "bg-rose-100", text: "text-rose-600" },
-    amber: { bg: "bg-amber-100", text: "text-amber-500" },
-    blue: { bg: "bg-blue-100", text: "text-blue-600" },
+  const toneMap: Record<string, { bg: string; text: string; valText?: string }> = {
+    emerald: { bg: "bg-emerald-50/70", text: "text-emerald-700" },
+    rose: { bg: "bg-rose-50/70", text: "text-rose-600" },
+    amber: { bg: "bg-amber-50/70", text: "text-amber-600" },
+    emerald_profit: { bg: "bg-blue-50/70", text: "text-blue-600", valText: "text-emerald-700" },
   };
+  
   const t = toneMap[tone];
+  
   return (
-    <div className="flex w-full items-center gap-2.5 rounded-2xl border border-border/70 bg-white p-3 sm:gap-4 sm:p-5">
-      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${t.bg} ${t.text} sm:h-12 sm:w-12`}>
-        {icon}
+    <div className="flex flex-col justify-between min-h-[96px] w-full rounded-2xl border border-slate-100 bg-white p-3.5 shadow-[0_2px_6px_rgba(0,0,0,0.01)]">
+      <div className="flex items-center justify-between w-full">
+        <span className="text-[11px] font-semibold text-slate-400">{label}</span>
+        <div className={`grid h-8 w-8 place-items-center rounded-xl ${t.bg} ${t.text}`}>
+          {icon}
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="break-words text-xs text-muted-foreground sm:text-sm">{label}</div>
-        <div className={`break-words text-sm font-bold leading-tight sm:text-xl md:text-2xl ${coloredValue ? t.text : "text-foreground"}`}>
+      <div className="mt-2.5">
+        <div className={`text-[15px] font-extrabold leading-tight tracking-tight truncate ${t.valText || "text-slate-800"}`}>
           {fmtIDR(value)}
         </div>
       </div>
     </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="grid place-items-center rounded-[20px] border-2 border-dashed border-border bg-card/50 px-6 py-20 text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-muted">
-        <Store className="h-8 w-8 text-muted-foreground" />
-      </div>
-      <p className="mt-4 text-lg font-semibold">Belum ada bazar</p>
-      <p className="mt-1 text-sm text-muted-foreground">Klik "Bazar Baru" untuk memulai.</p>
-    </div>
-  );
-}
-
-function NoResultState({ query }: { query: string }) {
-  return (
-    <div className="grid place-items-center rounded-[20px] border-2 border-dashed border-border bg-card/50 px-6 py-20 text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-muted">
-        <Search className="h-8 w-8 text-muted-foreground" />
-      </div>
-      <p className="mt-4 text-lg font-semibold">Tidak ditemukan</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Tidak ada bazar yang cocok dengan "{query}".
-      </p>
-    </div>
-  );
-}
-
-export function ConfirmDelete({ onConfirm, label }: { onConfirm: () => void; label: string }) {
-  return (
-    <AlertDialog>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Hapus {label}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Tindakan ini tidak dapat dibatalkan.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Batal</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Hapus</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }
 
@@ -341,31 +319,31 @@ export function PinConfirmDelete({
 
   return (
     <>
-      <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={startDelete}>
+      <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-slate-50 rounded-lg" onClick={startDelete}>
         <Trash2 className="h-4 w-4" />
       </Button>
       <AlertDialog open={open} onOpenChange={(v) => { if (!v) reset(); else setOpen(true); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl max-w-[90vw] sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>{step === "confirm" ? `Hapus ${label}?` : "Masukkan PIN"}</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="font-bold text-slate-900">{step === "confirm" ? `Hapus ${label}?` : "Masukkan PIN Keamanan"}</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-500 text-xs">
               {step === "confirm"
-                ? "Tindakan ini tidak dapat dibatalkan. Lanjutkan menghapus data ini?"
-                : "Masukkan PIN aktif untuk melanjutkan penghapusan."}
+                ? "Tindakan ini permanen dan akan melenyapkan data. Anda yakin?"
+                : "Silakan input PIN otorisasi Admin Anda untuk melakukan aksi ini."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {step === "pin" && (
-            <div className="space-y-2">
-              <Label>PIN</Label>
-              <Input type="password" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Masukkan PIN" />
+            <div className="space-y-1 py-1">
+              <Label className="text-xs font-semibold text-slate-600">PIN Konfirmasi</Label>
+              <Input type="password" inputMode="numeric" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} placeholder="• • • •" className="rounded-xl border-slate-200 text-center tracking-widest text-base" />
             </div>
           )}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-row gap-2 justify-end pt-1">
+            <AlertDialogCancel className="rounded-xl flex-1 sm:flex-none mt-0 text-xs" onClick={reset}>Batal</AlertDialogCancel>
             {step === "confirm" ? (
-              <AlertDialogAction onClick={proceed}>Ya, Hapus</AlertDialogAction>
+              <AlertDialogAction className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl flex-1 sm:flex-none text-xs" onClick={proceed}>Ya, Hapus</AlertDialogAction>
             ) : (
-              <AlertDialogAction onClick={confirmWithPin}>Hapus</AlertDialogAction>
+              <AlertDialogAction className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl flex-1 sm:flex-none text-xs" onClick={confirmWithPin}>Konfirmasi</AlertDialogAction>
             )}
           </AlertDialogFooter>
         </AlertDialogContent>
