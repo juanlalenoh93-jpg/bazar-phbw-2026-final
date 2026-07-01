@@ -193,8 +193,8 @@ function PiutangList() {
             {filtered.map(([customer, total]) => {
               const initial = customer.trim().charAt(0).toUpperCase() || "?";
               return (
-                <Link
-                  <Link
+               
+   <Link
   key={customer}
   to="/piutang/$customer"
   params={{ customer: encodeURIComponent(customer) }}
