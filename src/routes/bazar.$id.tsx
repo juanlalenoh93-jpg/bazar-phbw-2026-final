@@ -524,21 +524,21 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
           </div>
         </div>
         {status.fullSold ? (
-          <Badge className="gap-1 bg-emerald-600"><CheckCircle2 className="h-3 w-3" /> {status.label}</Badge>
+          <Badge className="shrink-0 gap-1 bg-emerald-600 text-white"><CheckCircle2 className="h-3 w-3" /> {status.label}</Badge>
         ) : status.partialSold ? (
-          <Badge className="bg-amber-500 text-white">{status.label}</Badge>
+          <Badge className="shrink-0 bg-amber-500 text-white">{status.label}</Badge>
         ) : (
-          <Badge variant="secondary">{status.label}</Badge>
+          <Badge className="shrink-0 bg-slate-200 text-slate-700 hover:bg-slate-200">{status.label}</Badge>
         )}
       </div>
-      <div className="mt-2.5 space-y-0.5 text-sm">
+      <ul className="mt-2.5 list-disc space-y-1 pl-4 text-sm marker:text-muted-foreground/60">
         {displayItems.map((i) => (
-          <div key={i.menuId} className="flex justify-between px-0.5 py-0.5">
-            <span>{i.name} × {i.originalQty}</span>
-            <span className="text-muted-foreground">{fmtIDR(i.price * i.originalQty)}</span>
-          </div>
+          <li key={i.menuId} className="flex justify-between gap-2 py-0.5">
+            <span className="min-w-0 truncate">{i.name} × {i.originalQty}</span>
+            <span className="shrink-0 whitespace-nowrap text-muted-foreground">{fmtIDR(i.price * i.originalQty)}</span>
+          </li>
         ))}
-      </div>
+      </ul>
       <div className="mt-3 grid grid-cols-3 gap-2 border-t border-dashed pt-3 text-center">
         <div>
           <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><ClipboardList className="h-3 w-3" /> Total Item</div>
@@ -554,7 +554,7 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
         </div>
       </div>
       {isAdmin && (
-        <div className="mt-2.5 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2.5">
           {db.sales.some((sale) => sale.orderId === order.id) ? (
             <PinConfirmDelete
               label="pesanan"
@@ -600,7 +600,7 @@ function EditOrderDialog({ order, menus }: { order: Order; menus: MenuItem[] }) 
   };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button size="sm" variant="outline" className="gap-1.5 rounded-xl px-3.5"><Pencil className="h-4 w-4" /> Edit</Button></DialogTrigger>
+      <DialogTrigger asChild><Button size="sm" variant="outline" className="h-10 gap-1.5 rounded-xl px-3.5"><Pencil className="h-4 w-4" /> Edit</Button></DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Edit Pesanan — {order.customer}</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -704,7 +704,7 @@ function JualDialog({ order, menus, bazarId }: { order: Order; menus: MenuItem[]
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild><Button size="sm" className="gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-white hover:bg-emerald-700"><ShoppingCart className="h-4 w-4" /> Jual</Button></DialogTrigger>
+      <DialogTrigger asChild><Button size="sm" className="h-10 gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-white hover:bg-emerald-700"><ShoppingCart className="h-4 w-4" /> Jual</Button></DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Konfirmasi Penjualan — {order.customer}</DialogTitle>
@@ -831,7 +831,7 @@ function GantiCustomerDialog({ order, menus }: { order: Order; menus: MenuItem[]
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button size="sm" variant="outline" className="gap-1.5 rounded-xl px-3.5"><UserCog className="h-4 w-4" /> Ganti</Button></DialogTrigger>
+      <DialogTrigger asChild><Button size="sm" variant="outline" className="h-10 gap-1.5 rounded-xl px-3.5"><UserCog className="h-4 w-4" /> Ganti</Button></DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Alihkan Pesanan</DialogTitle>
@@ -1046,16 +1046,16 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
             <div className="text-xs text-muted-foreground">{fmtDateTime(sale.createdAt)}</div>
           </div>
         </div>
-        <Badge className={status === "LUNAS" ? "bg-emerald-600" : "bg-amber-500 text-white"}>{status}</Badge>
+        <Badge className={`shrink-0 ${status === "LUNAS" ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>{status}</Badge>
       </div>
-      <div className="mt-3 space-y-1 text-sm">
+      <ul className="mt-3 list-disc space-y-1 pl-4 text-sm marker:text-muted-foreground/60">
         {sale.items.map((i, idx) => (
-          <div key={idx} className="flex justify-between px-0.5 py-0.5">
-            <span>{i.name} × {i.qty}</span>
-            <span>{fmtIDR(i.price * i.qty)}</span>
-          </div>
+          <li key={idx} className="flex justify-between gap-2 py-0.5">
+            <span className="min-w-0 truncate">{i.name} × {i.qty}</span>
+            <span className="shrink-0 whitespace-nowrap">{fmtIDR(i.price * i.qty)}</span>
+          </li>
         ))}
-      </div>
+      </ul>
       {status === "LUNAS" ? (
         <div className="mt-3 flex divide-x rounded-xl border bg-muted/30 px-2.5">
           <StatGroupItem icon={<Receipt className="h-4 w-4" />} tone="emerald" label="Total" value={fmtIDR(sale.total)} />
@@ -1075,8 +1075,8 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
           <img src={sale.proof} alt="bukti" className="h-16 rounded border" />
         </a>
       )}
-      <div className="mt-3 flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={printNota} className="gap-1.5 rounded-xl border-emerald-500 px-4 text-emerald-700 hover:bg-emerald-50">
+      <div className="mt-3 flex flex-wrap items-center gap-2.5">
+        <Button size="sm" variant="outline" onClick={printNota} className="h-10 gap-1.5 rounded-xl border-emerald-500 px-4 text-emerald-700 hover:bg-emerald-50">
           <Printer className="h-4 w-4" /> Nota
         </Button>
         {isAdmin && <PinConfirmDelete label="penjualan" requirePin canDelete={canDeleteSale} onConfirm={doDelete} />}
@@ -1197,9 +1197,9 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
                 <div className="whitespace-nowrap text-base font-bold text-destructive">{fmtIDR(e.amount)}</div>
               </div>
               {isAdmin && (
-                <div className="mt-3 flex items-center gap-2">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl px-3.5" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
-                    <Pencil className="h-3.5 w-3.5" /> Edit
+                <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                  <Button size="sm" variant="outline" className="h-10 gap-1.5 rounded-xl px-3.5" onClick={() => { setEditId(e.id); setName(e.name); setQty(String(e.qty || 1)); setAmount(String(e.amount)); setOpen(true); }}>
+                    <Pencil className="h-4 w-4" /> Edit
                   </Button>
                   <PinConfirmDelete label={e.name} requirePin={(e.amount || 0) > 0} onConfirm={() => { setDB((d) => { d.expenses = d.expenses.filter((x) => x.id !== e.id); }); toast.success("Pengeluaran dihapus"); }} />
                 </div>
