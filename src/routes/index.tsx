@@ -186,7 +186,7 @@ function AppSettings() {
     setActive(null);
     setPinInput("");
     setVerified(false);
-    if (action === "modal-awal") setModalAwalInput(String(db.modalAwal || 0));
+    if (active === "modal-awal") setModalAwalInput(String(db.modalAwal || 0));
     setNext("");
     setConfirm("");
     setNewAdminEmail("");

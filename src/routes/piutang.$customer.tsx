@@ -1,12 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft, Upload, CalendarDays, Wallet, CheckCircle2, Store, User } from "lucide-react";
 import { useDB, setDB, uid, fmtIDR, fmtDateTime, saleOutstanding, salePaidTotal, type PiutangPayment } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -16,6 +15,21 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/piutang/$customer")({
   component: CustomerDetail,
 });
+
+const AVATAR_COLORS = [
+  "bg-emerald-500",
+  "bg-blue-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-violet-500",
+  "bg-teal-500",
+  "bg-orange-500",
+];
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 function CustomerDetail() {
   const { customer: raw } = Route.useParams();
@@ -29,51 +43,117 @@ function CustomerDetail() {
 
   const totalOut = sales.reduce((s, x) => s + saleOutstanding(db, x.id), 0);
   const bazarName = (id: string) => db.bazars.find((b) => b.id === id)?.name || "?";
+  const initial = customer.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className="space-y-5">
-      <Link to="/piutang" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+    <div className="space-y-4 pb-6">
+      {/* Back link */}
+      <Link to="/piutang" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <ArrowLeft className="h-4 w-4" /> Daftar Piutang
       </Link>
 
-      <div>
-        <h2 className="text-2xl font-bold">{customer}</h2>
-        <p className="text-sm">Total piutang: <b className="text-warning">{fmtIDR(totalOut)}</b></p>
+      {/* Header hijau */}
+      <div className="rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-lg">
+        <div className="flex items-center gap-4">
+          <div className={`grid h-16 w-16 place-items-center rounded-full text-2xl font-black text-white shadow-inner ${avatarColor(customer)} ring-4 ring-white/30`}>
+            {initial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-wide text-emerald-100/90">Detail Piutang</div>
+            <div className="truncate text-xl font-black">{customer}</div>
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
+          <div className="text-[11px] uppercase tracking-wide text-emerald-100/90">Total Piutang</div>
+          <div className="text-2xl font-black">{fmtIDR(totalOut)}</div>
+          <div className="text-[11px] text-emerald-100/80 mt-0.5">{sales.length} transaksi belum lunas</div>
+        </div>
       </div>
 
+      {/* List sale */}
       {sales.length === 0 ? (
-        <p className="rounded-xl border bg-card p-6 text-center text-muted-foreground">Tidak ada piutang aktif.</p>
+        <p className="rounded-2xl border bg-white p-6 text-center text-sm text-slate-500">Tidak ada piutang aktif.</p>
       ) : (
         <div className="grid gap-3">
           {sales.map((s) => {
             const out = saleOutstanding(db, s.id);
             const paidSoFar = salePaidTotal(db, s.id);
+            const payments = db.payments.filter((p) => p.saleId === s.id).sort((a, b) => a.date - b.date);
+            const progress = s.total > 0 ? Math.min(100, Math.round((paidSoFar / s.total) * 100)) : 0;
             return (
-              <div key={s.id} className="rounded-2xl border bg-card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <Badge variant="secondary">{bazarName(s.bazarId)}</Badge>
-                    <div className="mt-1 text-xs text-muted-foreground">{fmtDateTime(s.createdAt)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground">Sisa</div>
-                    <div className="font-bold text-warning">{fmtIDR(out)}</div>
+              <div key={s.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                {/* Header sale: bazar + tanggal */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                    <Store className="h-3.5 w-3.5" /> {bazarName(s.bazarId)}
+                  </span>
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                    <CalendarDays className="h-3.5 w-3.5" /> {fmtDateTime(s.createdAt)}
                   </div>
                 </div>
-                <div className="mt-2 space-y-1 text-sm">
+
+                {/* Items */}
+                <div className="mt-3 space-y-1.5">
                   {s.items.map((i, idx) => (
-                    <div key={idx} className="flex justify-between rounded bg-muted/50 px-2 py-1">
-                      <span>{i.name} × {i.qty}</span>
-                      <span>{fmtIDR(i.price * i.qty)}</span>
+                    <div key={idx} className="flex items-center gap-2 text-xs">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      <span className="flex-1 truncate text-slate-700">{i.name} <span className="text-slate-400">×{i.qty}</span></span>
+                      <span className="shrink-0 font-bold text-slate-700">{fmtIDR(i.price * i.qty)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Total {fmtIDR(s.total)} · Sudah dibayar {fmtIDR(paidSoFar)}
+
+                {/* Total Belanja / Sudah Dibayar */}
+                <div className="mt-3 space-y-1 rounded-xl bg-slate-50 p-3 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Total Belanja</span>
+                    <span className="font-bold text-slate-800">{fmtIDR(s.total)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Sudah Dibayar</span>
+                    <span className="font-bold text-emerald-600">{fmtIDR(paidSoFar)}</span>
+                  </div>
                 </div>
-                {isAdmin && <div className="mt-3">
-                  <BayarDialog saleId={s.id} bazarName={bazarName(s.bazarId)} menuSummary={s.items.map((i) => `${i.name}×${i.qty}`).join(", ")} max={out} customer={customer} bazarId={s.bazarId} />
-                </div>}
+
+                {/* Bar sisa piutang */}
+                <div className="mt-3 rounded-xl bg-amber-50 p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-amber-700">Sisa Piutang</span>
+                    <span className="text-sm font-black text-amber-700">{fmtIDR(out)}</span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-amber-100">
+                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                  <div className="mt-1 text-[10px] font-semibold text-amber-700/80">Progress {progress}%</div>
+                </div>
+
+                {/* Riwayat pembayaran */}
+                {payments.length > 0 && (
+                  <div className="mt-3">
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Riwayat Pembayaran</div>
+                    <div className="mt-2 space-y-1.5">
+                      {payments.map((p) => (
+                        <div key={p.id} className="flex items-center gap-2 rounded-lg border border-slate-100 bg-white px-2.5 py-1.5 text-xs">
+                          <div className="grid h-6 w-6 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+                            <Wallet className="h-3 w-3" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-semibold text-slate-700">{fmtIDR(p.amount)} · {p.method === "cash" ? "Cash" : "Transfer"}</div>
+                            <div className="truncate text-[10px] text-slate-400">{fmtDateTime(p.date)}</div>
+                          </div>
+                          {p.proof && <a href={p.proof} target="_blank" rel="noreferrer"><img src={p.proof} alt="bukti" className="h-8 w-8 rounded object-cover" /></a>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tombol bayar */}
+                {isAdmin && (
+                  <div className="mt-4">
+                    <BayarDialog saleId={s.id} bazarName={bazarName(s.bazarId)} menuSummary={s.items.map((i) => `${i.name}×${i.qty}`).join(", ")} max={out} customer={customer} bazarId={s.bazarId} />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -111,9 +191,7 @@ function BayarDialog({
       id: uid(), saleId, bazarId, customer, menuName: menuSummary,
       amount: n, method, proof, date: Date.now(),
     };
-    setDB((d) => {
-      d.payments.push(newPayment);
-    });
+    setDB((d) => { d.payments.push(newPayment); });
     toast.success("Pembayaran tercatat");
     setOpen(false); setAmount(""); setProof(undefined); setMethod("cash");
   };
@@ -121,15 +199,17 @@ function BayarDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="w-full">Bayar / Cicil</Button>
+        <Button size="lg" className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md">
+          <Wallet className="h-4 w-4 mr-2" /> Bayar / Cicil
+        </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="rounded-2xl">
         <DialogHeader><DialogTitle>Pembayaran Piutang</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <div className="rounded-lg bg-muted/50 p-3 text-sm">
+          <div className="rounded-lg bg-slate-50 p-3 text-sm">
             <div><b>{customer}</b></div>
-            <div className="text-muted-foreground">{bazarName} — {menuSummary}</div>
-            <div className="mt-1">Sisa: <b className="text-warning">{fmtIDR(max)}</b></div>
+            <div className="text-slate-500">{bazarName} — {menuSummary}</div>
+            <div className="mt-1">Sisa: <b className="text-amber-600">{fmtIDR(max)}</b></div>
           </div>
           <div>
             <Label>Nominal Cicilan</Label>
@@ -155,7 +235,7 @@ function BayarDialog({
               </div>
             </div>
           )}
-          <DialogFooter><Button type="submit">Simpan Pembayaran</Button></DialogFooter>
+          <DialogFooter><Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Simpan Pembayaran</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

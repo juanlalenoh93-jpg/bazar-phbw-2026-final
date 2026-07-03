@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, User, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag } from "lucide-react";import {
+import { ArrowLeft, Plus, Pencil, User, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag, Lightbulb, BarChart3, CalendarDays, Package, ClipboardCheck, DollarSign, Banknote, Trash2, FileText, CreditCard } from "lucide-react";
+import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo,
   type MenuItem, type Order, type Sale,
@@ -138,34 +139,9 @@ function BazarDetail() {
               2. TAB CONTENT MENU (Sesuai tab menu.jpg dengan 3 Kotak Atas)
              ========================================== */}
           <TabsContent value="menu" className="space-y-4">
-            {/* 3 Kotak Ringkasan Statistik Atas */}
-            <div className="grid grid-cols-3 gap-3 my-2">
-              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Pesanan</div>
-                <div className="text-lg font-black text-slate-800 mt-1">
-                  {orders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0), 0)} pcs
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Terjual</div>
-                <div className="text-lg font-black text-[#15803d] mt-1">
-                  {sales.reduce((sum, s) => sum + s.items.reduce((s, i) => s + i.qty, 0), 0)} pcs
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Belum Diambil</div>
-                <div className="text-lg font-black text-amber-600 mt-1">
-                  {Math.max(
-                    0,
-                    orders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0), 0) -
-                      sales.reduce((sum, s) => sum + s.items.reduce((s, i) => s + i.qty, 0), 0)
-                  )} pcs
-                </div>
-              </div>
-            </div>
-
             <MenuTab bazarId={id} menus={menus} isAdmin={isAdmin} />
           </TabsContent>
+
 
           {/* ==========================================
               3. TAB CONTENT LAINNYA (Tetap Mengakses Sub-Tab Anda)
@@ -229,42 +205,12 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
 
   return (
     <div className="space-y-4">
-      {/* 1. KOTAK RINGKASAN ATAS */}
-      {menus.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Pesanan</div>
-            <div className="text-lg font-black text-slate-800 mt-1">{summary.pesanan} pcs</div>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Terjual</div>
-            <div className="text-lg font-black text-[#15803d] mt-1">{summary.terjual} pcs</div>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Belum Diambil</div>
-            <div className="text-lg font-black text-amber-600 mt-1">{summary.belumDiambil} pcs</div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. PENCARIAN & TOMBOL TAMBAH */}
-      <div className="flex items-center gap-2">
-        {menus.length > 0 && (
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari menu..."
-              className="pl-9 h-10 rounded-xl border-slate-200 text-xs bg-white"
-            />
-          </div>
-        )}
-        
-        {isAdmin && (
+      {/* 1. TOMBOL + MENU BARU (kanan atas) */}
+      {isAdmin && (
+        <div className="flex justify-end">
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="h-10 gap-1 text-xs rounded-xl border-[#15803d] text-[#15803d] bg-white hover:bg-slate-50 shadow-sm font-bold px-4">
+              <Button size="sm" variant="outline" className="h-11 gap-1.5 text-sm rounded-xl border-[#15803d] text-[#15803d] bg-white hover:bg-emerald-50 shadow-sm font-semibold px-5">
                 <Plus className="h-4 w-4" /> Menu Baru
               </Button>
             </DialogTrigger>
@@ -285,50 +231,106 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
               </form>
             </DialogContent>
           </Dialog>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* 3. DAFTAR MENU */}
+      {/* 2. SEARCH */}
+      {menus.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari menu..."
+            className="h-12 rounded-2xl pl-11 bg-white border-slate-200 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+          />
+        </div>
+      )}
+
+      {/* 3. INFO CARD HIJAU */}
+      {menus.length > 0 && (
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+          <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-emerald-700">Statistik menu dihitung otomatis</div>
+            <div className="text-xs text-emerald-700/80 mt-0.5">Berdasarkan data pesanan dan penjualan pada bazar ini.</div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. DAFTAR MENU */}
       {menus.length === 0 ? <Empty text="Belum ada menu untuk bazar ini." /> : filteredMenus.length === 0 ? <Empty text="Tidak ada menu dengan nama itu." /> : (
         <div className="grid gap-3">
           {filteredMenus.map((m) => {
             const stat = menuStats(db, m.id);
             return (
-              <div key={m.id} className="p-3 border border-slate-100 rounded-2xl shadow-sm bg-white flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-12 w-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-                    <span className="text-xl">🍲</span>
+              <div key={m.id} className="p-3 border border-slate-100 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] bg-white">
+                <div className="flex items-center gap-3">
+                  {/* Foto/Emoji */}
+                  <div className="h-14 w-14 shrink-0 rounded-xl bg-gradient-to-br from-emerald-50 to-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
+                    <span className="text-2xl">🍲</span>
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-sm text-slate-900 truncate">{m.name}</h3>
-                    <p className="text-xs font-extrabold text-[#15803d] mt-0.5">{fmtIDR(m.price)}</p>
-                    
-                    <div className="flex items-center gap-2 mt-1.5 text-[10px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md w-max">
-                      <span>Pesan: <strong className="text-slate-700">{stat.pesanan}</strong></span>
-                      <span>•</span>
-                      <span>Jual: <strong className="text-[#15803d]">{stat.terjual}</strong></span>
-                      <span>•</span>
-                      <span>Sisa: <strong className="text-amber-600">{stat.belumDiambil}</strong></span>
+                  {/* Nama & harga */}
+                  <div className="min-w-0 w-24 sm:w-32">
+                    <h3 className="font-bold text-[13px] text-slate-900 truncate leading-tight">{m.name}</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{fmtIDR(m.price)}</p>
+                  </div>
+                  {/* 3 kolom statistik */}
+                  <div className="flex-1 grid grid-cols-3 gap-1 min-w-0">
+                    <MenuStatCell icon={<ClipboardList className="h-3.5 w-3.5" />} tone="blue" label="Pesanan" value={stat.pesanan} />
+                    <MenuStatCell icon={<ShoppingCart className="h-3.5 w-3.5" />} tone="green" label="Terjual" value={stat.terjual} />
+                    <MenuStatCell icon={<Clock className="h-3.5 w-3.5" />} tone="amber" label="Belum diambil" value={stat.belumDiambil} />
+                  </div>
+                  {/* Aksi */}
+                  {isAdmin && (
+                    <div className="flex shrink-0 items-center gap-0.5 border-l border-slate-100 pl-1 ml-1">
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg" onClick={() => openEdit(m)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <PinConfirmDelete label={m.name} requirePin={stat.pesanan > 0 || stat.terjual > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
                     </div>
-                  </div>
+                  )}
                 </div>
-                
-                {isAdmin && (
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 rounded-xl hover:text-slate-600" onClick={() => openEdit(m)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <PinConfirmDelete label={m.name} requirePin={stat.pesanan > 0 || stat.terjual > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
+
+      {/* 5. FOOTER RINGKASAN MENU */}
+      {menus.length > 0 && (
+        <div className="flex items-center gap-3 p-3 border border-slate-100 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] bg-white">
+          <div className="h-12 w-12 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center">
+            <BarChart3 className="h-6 w-6 text-emerald-600" />
+          </div>
+          <div className="min-w-0 w-24 sm:w-32">
+            <div className="font-bold text-[13px] text-slate-900 leading-tight">Ringkasan Menu</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Total semua menu</div>
+          </div>
+          <div className="flex-1 grid grid-cols-3 gap-1 min-w-0">
+            <MenuStatCell icon={<ClipboardList className="h-3.5 w-3.5" />} tone="blue" label="Pesanan" value={summary.pesanan} />
+            <MenuStatCell icon={<ShoppingCart className="h-3.5 w-3.5" />} tone="green" label="Terjual" value={summary.terjual} />
+            <MenuStatCell icon={<Clock className="h-3.5 w-3.5" />} tone="amber" label="Belum diambil" value={summary.belumDiambil} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+function MenuStatCell({ icon, tone, label, value }: { icon: React.ReactNode; tone: "blue" | "green" | "amber"; label: string; value: number }) {
+  const toneCls = tone === "blue" ? "text-blue-600" : tone === "green" ? "text-[#15803d]" : "text-amber-600";
+  return (
+    <div className="min-w-0 text-center">
+      <div className={`flex items-center justify-center gap-1 text-[10px] font-semibold ${toneCls}`}>
+        {icon}
+        <span className="truncate">{label}</span>
+      </div>
+      <div className="text-base font-black text-slate-800 mt-0.5">{value}</div>
+    </div>
+  );
+}
+
 
 function MenuStatItem({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "good" | "warn" }) {
   const cls = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-600" : "text-foreground";
@@ -415,8 +417,8 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
         <div className="flex justify-end">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline" disabled={menus.length === 0} className="h-10 gap-1.5 rounded-xl border-[#15803d] px-4 py-2 text-xs font-bold text-[#15803d] bg-white hover:bg-slate-50 shadow-sm">
-                <Plus className="h-4 w-4" /> Pesanan Baru
+              <Button size="sm" variant="outline" disabled={menus.length === 0} className="h-11 gap-1.5 rounded-xl border-[#15803d] px-5 py-2 text-sm font-semibold text-[#15803d] bg-white hover:bg-emerald-50 shadow-sm">
+                <Plus className="h-4 w-4" /> Pesanan
               </Button>
             </DialogTrigger>
             <DialogContent className="rounded-2xl">
@@ -557,50 +559,72 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
   const status = useMemo(() => orderStatusInfo(db, order), [db, order]);
   const totalItem = displayItems.reduce((s, i) => s + i.originalQty, 0);
   const totalPesanan = displayItems.reduce((s, i) => s + i.price * i.originalQty, 0);
-  const initial = order.customer.trim().charAt(0).toUpperCase() || "?";
+  const hasSales = db.sales.some((sale) => sale.orderId === order.id);
 
   return (
-    <div className="p-4 border border-slate-100 rounded-2xl shadow-sm bg-white">
+    <div className="p-4 border border-slate-100 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white">
       {/* Baris Atas: Tanggal & Badge Status */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 mb-3">
-        <span className="text-[10px] font-bold text-slate-400">{fmtDateTime(order.createdAt)}</span>
-        <Badge className={`rounded-full text-[10px] px-2.5 py-0.5 border-none font-bold shadow-none uppercase tracking-wide ${
-          status.fullSold ? "bg-emerald-50 text-[#15803d]" : status.partialSold ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+          <CalendarDays className="h-3.5 w-3.5" />
+          {fmtDateTime(order.createdAt)}
+        </div>
+        <Badge className={`rounded-full text-[10px] px-2.5 py-1 border-none font-bold shadow-none uppercase tracking-wide ${
+          status.fullSold ? "bg-emerald-100 text-emerald-700" : status.partialSold ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
         }`}>
           {status.label}
         </Badge>
       </div>
 
-      {/* Baris Tengah: Nama Pembeli */}
-      <div className="flex items-center gap-3 text-slate-900 font-black text-sm">
-        <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-50 border border-slate-100 text-slate-500 shrink-0">
-          {/* Pastikan icon User dari lucide-react sudah di-import di atas ya */}
+      {/* Nama Pembeli */}
+      <div className="mt-3 flex items-center gap-2.5 text-slate-900 font-black text-base">
+        <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
           <User className="h-4 w-4" />
         </div>
         <span className="truncate">{order.customer}</span>
       </div>
 
-      {/* Baris Bawah: List Menu Menjorok */}
-      <div className="mt-3 space-y-1.5 pl-4 border-l-2 border-slate-100 ml-4">
+      {/* List Menu — bullet + harga di kanan */}
+      <div className="mt-3 space-y-1.5">
         {displayItems.map((i) => (
-          <div key={i.menuId} className="text-xs font-medium flex justify-between items-center gap-2">
-            <span className="truncate text-slate-500">{i.name}</span>
-            <span className="font-bold text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded-md shrink-0">x{i.originalQty}</span>
+          <div key={i.menuId} className="flex items-center gap-2 text-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="text-slate-700 truncate flex-1">{i.name} <span className="text-slate-400">×{i.originalQty}</span></span>
+            <span className="font-bold text-slate-700 shrink-0">{fmtIDR(i.price * i.originalQty)}</span>
           </div>
         ))}
       </div>
 
-      {/* Tombol Aksi Bawaan */}
+      {/* Footer 3 kolom */}
+      <div className="mt-3 pt-3 border-t border-dashed border-slate-200 grid grid-cols-3 gap-2 text-center">
+        <div>
+          <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-blue-600">
+            <Package className="h-3.5 w-3.5" /> Total Item
+          </div>
+          <div className="text-sm font-black text-slate-800 mt-0.5">{totalItem}</div>
+        </div>
+        <div>
+          <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-emerald-600">
+            <FileText className="h-3.5 w-3.5" /> Total Pesanan
+          </div>
+          <div className="text-sm font-black text-slate-800 mt-0.5">{fmtIDR(totalPesanan)}</div>
+        </div>
+        <div>
+          <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-amber-600">
+            <ClipboardCheck className="h-3.5 w-3.5" /> Status
+          </div>
+          <div className="text-[11px] font-bold text-slate-800 mt-0.5 truncate">{status.label}</div>
+        </div>
+      </div>
+
+      {/* Tombol Aksi */}
       {isAdmin && (
-        <div className="mt-4 pt-3 border-t border-slate-50 flex flex-wrap gap-2 justify-end">
-          {db.sales.some((sale) => sale.orderId === order.id) ? (
+        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-2">
+          {hasSales ? (
             <PinConfirmDelete
               label="pesanan"
               requirePin={false}
-              canDelete={() => {
-                toast.error("Pesanan ini sudah memiliki riwayat penjualan.");
-                return false;
-              }}
+              canDelete={() => { toast.error("Pesanan ini sudah memiliki riwayat penjualan."); return false; }}
               onConfirm={() => {}}
             />
           ) : (
@@ -612,9 +636,7 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
                 label="pesanan"
                 requirePin
                 onConfirm={() => {
-                  setDB((d) => {
-                    d.orders = d.orders.filter((x) => x.id !== order.id);
-                  });
+                  setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); });
                   toast.success("Pesanan dihapus");
                 }}
               />
@@ -625,6 +647,7 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
     </div>
   );
 }
+
 
 function EditOrderDialog({ order, menus }: { order: Order; menus: MenuItem[] }) {
   const db = useDB();
@@ -1086,53 +1109,49 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
   const initial = sale.customer.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className="p-4 border border-slate-100 rounded-2xl shadow-sm bg-white">
-      {/* Baris Atas: Header & Status */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 mb-3">
-        <div className="flex items-center gap-2">
-          <div className="text-[10px] font-bold text-slate-400">{fmtDateTime(sale.createdAt)}</div>
+    <div className="p-4 border border-slate-100 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white">
+      {/* Header: tanggal + status */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+          <CalendarDays className="h-3.5 w-3.5" />
+          {fmtDateTime(sale.createdAt)}
         </div>
-        <Badge className={`rounded-full text-[10px] px-2.5 py-0.5 border-none font-bold shadow-none uppercase tracking-wide ${
-          status === "LUNAS" ? "bg-emerald-50 text-[#15803d]" : "bg-amber-50 text-amber-600"
+        <Badge className={`rounded-full text-[10px] px-2.5 py-1 border-none font-bold shadow-none uppercase tracking-wide ${
+          status === "LUNAS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
         }`}>
           {status}
         </Badge>
       </div>
 
-      {/* Baris Tengah: Info Customer */}
-      <div className="flex items-center gap-3 text-slate-900 font-black text-sm mb-3">
-        <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-50 border border-slate-100 text-slate-500 shrink-0">
+      {/* Nama customer */}
+      <div className="mt-3 flex items-center gap-2.5 text-slate-900 font-black text-base">
+        <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
           <User className="h-4 w-4" />
         </div>
         <span className="truncate">{sale.customer}</span>
       </div>
 
-      {/* List Menu */}
-      <div className="space-y-1.5 pl-4 border-l-2 border-slate-100 ml-4 mb-4">
+      {/* List menu — stripe */}
+      <div className="mt-3 rounded-xl overflow-hidden border border-slate-100">
         {sale.items.map((i, idx) => (
-          <div key={idx} className="text-xs font-medium flex justify-between items-center gap-2">
-            <span className="truncate text-slate-500">{i.name}</span>
-            <span className="font-bold text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded-md shrink-0">x{i.qty}</span>
+          <div key={idx} className={`flex items-center gap-2 px-3 py-2 text-xs ${idx % 2 === 0 ? "bg-slate-50/60" : "bg-white"}`}>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="text-slate-700 truncate flex-1">{i.name} <span className="text-slate-400">×{i.qty}</span></span>
+            <span className="font-bold text-slate-700 shrink-0">{fmtIDR(i.price * i.qty)}</span>
           </div>
         ))}
       </div>
 
-      {/* Grid Informasi (Total/Bayar/Sisa) */}
-      <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded-xl">
-        <div className="text-center">
-          <div className="text-[9px] text-slate-400 font-bold uppercase">Total</div>
-          <div className="text-xs font-black text-slate-700">{fmtIDR(sale.total)}</div>
-        </div>
-        <div className="text-center border-l border-slate-200">
-          <div className="text-[9px] text-slate-400 font-bold uppercase">Bayar</div>
-          <div className="text-xs font-black text-emerald-600">{fmtIDR(sale.paid)}</div>
-        </div>
-        <div className="text-center border-l border-slate-200">
-          <div className="text-[9px] text-slate-400 font-bold uppercase">{status === "LUNAS" ? "Metode" : "Sisa"}</div>
-          <div className="text-xs font-black text-slate-700">
-            {status === "LUNAS" ? (sale.method === "cash" ? "Cash" : "Transfer") : fmtIDR(outstanding)}
-          </div>
-        </div>
+      {/* 3 icon stat */}
+      <div className="mt-3 pt-3 border-t border-dashed border-slate-200 grid grid-cols-3 gap-2">
+        <SaleStatCell icon={<DollarSign className="h-4 w-4" />} tone="emerald" label="Total" value={fmtIDR(sale.total)} />
+        <SaleStatCell icon={<Wallet className="h-4 w-4" />} tone="blue" label="Bayar" value={fmtIDR(sale.paid)} />
+        <SaleStatCell
+          icon={status === "LUNAS" ? <Banknote className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+          tone="amber"
+          label={status === "LUNAS" ? "Metode" : "Sisa"}
+          value={status === "LUNAS" ? (sale.method === "cash" ? "Cash" : "Transfer") : fmtIDR(outstanding)}
+        />
       </div>
 
       {/* Note & Proof */}
@@ -1143,13 +1162,28 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
         </a>
       )}
 
-      {/* Tombol Aksi */}
-      <div className="mt-4 pt-3 border-t border-slate-50 flex gap-2 justify-end">
+      {/* Aksi */}
+      <div className="mt-3 pt-3 border-t border-slate-100 flex gap-2 justify-end">
         <Button size="sm" variant="outline" onClick={printNota} className="h-9 rounded-xl border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50">
           <Printer className="h-4 w-4 mr-1.5" /> Nota
         </Button>
         {isAdmin && <PinConfirmDelete label="penjualan" requirePin canDelete={canDeleteSale} onConfirm={doDelete} />}
       </div>
+    </div>
+  );
+}
+
+function SaleStatCell({ icon, tone, label, value }: { icon: React.ReactNode; tone: "emerald" | "blue" | "amber"; label: string; value: string }) {
+  const toneMap = {
+    emerald: "bg-emerald-100 text-emerald-700",
+    blue: "bg-blue-100 text-blue-700",
+    amber: "bg-amber-100 text-amber-700",
+  } as const;
+  return (
+    <div className="flex flex-col items-center text-center min-w-0">
+      <div className={`grid h-9 w-9 place-items-center rounded-full ${toneMap[tone]}`}>{icon}</div>
+      <div className="mt-1 text-[10px] font-semibold text-slate-500">{label}</div>
+      <div className="text-[11px] font-black text-slate-800 truncate max-w-full">{value}</div>
     </div>
   );
 }
