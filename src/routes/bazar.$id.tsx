@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag } from "lucide-react";
-import {
+import { ArrowLeft, Plus, Pencil, User, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag } from "lucide-react";import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo,
   type MenuItem, type Order, type Sale,
@@ -329,6 +328,7 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
       )}
     </div>
   );
+}
 
 function MenuStatItem({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "good" | "warn" }) {
   const cls = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-600" : "text-foreground";
@@ -504,6 +504,7 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
       </div>
     </div>
   );
+}
 
 function orderSoldQtyByMenu(db: ReturnType<typeof useDB>, orderId: string): Record<string, number> {
   const sold: Record<string, number> = {};
