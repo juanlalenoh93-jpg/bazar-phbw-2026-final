@@ -120,21 +120,57 @@ function BazarDetail() {
 
       <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} className="space-y-4">
-          <TabsList className="grid h-11 w-full grid-cols-5 rounded-xl bg-muted/60 p-1">
-            {(["menu","pesanan","penjualan","pengeluaran","rekapan"] as const).map((k) => (
+          {/* ==========================================
+              1. TABS LIST NAVIGASI (Garis Hijau Tipis Sesuai Gambar)
+             ========================================== */}
+          <TabsList className="flex gap-1 overflow-x-auto bg-transparent border-b border-slate-100 rounded-none h-auto p-0 scrollbar-none justify-start mb-2">
+            {(["menu", "pesanan", "penjualan", "pengeluaran", "rekapan"] as const).map((k) => (
               <TabsTrigger
                 key={k}
                 value={k}
-                className="relative truncate whitespace-nowrap rounded-lg bg-transparent px-1 text-[11px] font-medium text-muted-foreground shadow-none data-[state=active]:bg-transparent data-[state=active]:text-emerald-700 data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:inset-x-3 data-[state=active]:after:-bottom-0.5 data-[state=active]:after:h-[3px] data-[state=active]:after:rounded-full data-[state=active]:after:bg-emerald-600 sm:text-xs"
+                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#15803d] data-[state=active]:text-[#15803d] data-[state=active]:font-extrabold text-slate-400 font-bold text-xs rounded-none shadow-none px-5 py-2.5 transition-all bg-transparent border-b-2 border-transparent"
               >
                 {k === "menu" ? "Menu" : k === "pesanan" ? "Pesanan" : k === "penjualan" ? "Penjualan" : k === "pengeluaran" ? "Pengeluaran" : "Rekapan"}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          <TabsContent value="menu">
+          {/* ==========================================
+              2. TAB CONTENT MENU (Sesuai tab menu.jpg dengan 3 Kotak Atas)
+             ========================================== */}
+          <TabsContent value="menu" className="space-y-4">
+            {/* 3 Kotak Ringkasan Statistik Atas */}
+            <div className="grid grid-cols-3 gap-3 my-2">
+              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Pesanan</div>
+                <div className="text-lg font-black text-slate-800 mt-1">
+                  {orders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0), 0)} pcs
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Terjual</div>
+                <div className="text-lg font-black text-[#15803d] mt-1">
+                  {sales.reduce((sum, s) => sum + s.items.reduce((s, i) => s + i.qty, 0), 0)} pcs
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Belum Diambil</div>
+                <div className="text-lg font-black text-amber-600 mt-1">
+                  {Math.max(
+                    0,
+                    orders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.qty, 0), 0) -
+                      sales.reduce((sum, s) => sum + s.items.reduce((s, i) => s + i.qty, 0), 0)
+                  )} pcs
+                </div>
+              </div>
+            </div>
+
             <MenuTab bazarId={id} menus={menus} isAdmin={isAdmin} />
           </TabsContent>
+
+          {/* ==========================================
+              3. TAB CONTENT LAINNYA (Tetap Mengakses Sub-Tab Anda)
+             ========================================== */}
           <TabsContent value="pesanan">
             <PesananTab bazarId={id} menus={menus} orders={orders} isAdmin={isAdmin} />
           </TabsContent>
@@ -153,7 +189,6 @@ function BazarDetail() {
     </div>
   );
 }
-
 /* ============ MENU TAB ============ */
 function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem[]; isAdmin: boolean }) {
   const db = useDB();
@@ -194,97 +229,106 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
   const summary = useMemo(() => bazarMenuSummary(db, bazarId), [db, bazarId]);
 
   return (
-    <div className="space-y-3">
-      {isAdmin && (
-        <div className="flex justify-end">
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Menu Baru</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>{editId ? "Edit" : "Tambah"} Menu</DialogTitle></DialogHeader>
-              <form onSubmit={submit} className="space-y-3">
-                <div><Label>Nama Menu</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-                <div><Label>Harga Jual</Label><Input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))} /></div>
-                <DialogFooter><Button type="submit" size="sm" disabled={saving}>Simpan</Button></DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
-
+    <div className="space-y-4">
+      {/* 1. KOTAK RINGKASAN ATAS */}
       {menus.length > 0 && (
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari menu..."
-            className="pl-9"
-          />
-        </div>
-      )}
-
-      {menus.length > 0 && (
-        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800">
-          <ClipboardList className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="text-xs">
-            <div className="font-semibold">Statistik menu dihitung otomatis</div>
-            <div className="text-emerald-700/80">Berdasarkan data pesanan dan penjualan pada bazar ini.</div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+            <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Pesanan</div>
+            <div className="text-lg font-black text-slate-800 mt-1">{summary.pesanan} pcs</div>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+            <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Total Terjual</div>
+            <div className="text-lg font-black text-[#15803d] mt-1">{summary.terjual} pcs</div>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+            <div className="text-[10px] font-bold text-slate-400 tracking-wide uppercase">Belum Diambil</div>
+            <div className="text-lg font-black text-amber-600 mt-1">{summary.belumDiambil} pcs</div>
           </div>
         </div>
       )}
 
+      {/* 2. PENCARIAN & TOMBOL TAMBAH */}
+      <div className="flex items-center gap-2">
+        {menus.length > 0 && (
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari menu..."
+              className="pl-9 h-10 rounded-xl border-slate-200 text-xs bg-white"
+            />
+          </div>
+        )}
+        
+        {isAdmin && (
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="h-10 gap-1 text-xs rounded-xl border-[#15803d] text-[#15803d] bg-white hover:bg-slate-50 shadow-sm font-bold px-4">
+                <Plus className="h-4 w-4" /> Menu Baru
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="rounded-2xl">
+              <DialogHeader><DialogTitle className="text-sm font-bold">{editId ? "Edit" : "Tambah"} Menu</DialogTitle></DialogHeader>
+              <form onSubmit={submit} className="space-y-3 py-2">
+                <div>
+                  <Label className="text-xs">Nama Menu</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl mt-1 text-xs" />
+                </div>
+                <div>
+                  <Label className="text-xs">Harga Jual</Label>
+                  <Input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))} className="rounded-xl mt-1 text-xs" />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" size="sm" disabled={saving} className="rounded-xl bg-[#15803d] hover:bg-[#116631] text-white text-xs">Simpan</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* 3. DAFTAR MENU */}
       {menus.length === 0 ? <Empty text="Belum ada menu untuk bazar ini." /> : filteredMenus.length === 0 ? <Empty text="Tidak ada menu dengan nama itu." /> : (
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {filteredMenus.map((m) => {
             const stat = menuStats(db, m.id);
             return (
-              <div key={m.id} className="rounded-[16px] border bg-card p-2.5 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{m.name}</div>
-                    <div className="text-sm text-muted-foreground">{fmtIDR(m.price)}</div>
+              <div key={m.id} className="p-3 border border-slate-100 rounded-2xl shadow-sm bg-white flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-12 w-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                    <span className="text-xl">🍲</span>
                   </div>
-                  {isAdmin && (
-                    <div className="flex shrink-0 items-center gap-2.5">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
-                      <PinConfirmDelete label={m.name} requirePin={stat.pesanan > 0 || stat.terjual > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm text-slate-900 truncate">{m.name}</h3>
+                    <p className="text-xs font-extrabold text-[#15803d] mt-0.5">{fmtIDR(m.price)}</p>
+                    
+                    <div className="flex items-center gap-2 mt-1.5 text-[10px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md w-max">
+                      <span>Pesan: <strong className="text-slate-700">{stat.pesanan}</strong></span>
+                      <span>•</span>
+                      <span>Jual: <strong className="text-[#15803d]">{stat.terjual}</strong></span>
+                      <span>•</span>
+                      <span>Sisa: <strong className="text-amber-600">{stat.belumDiambil}</strong></span>
                     </div>
-                  )}
+                  </div>
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-2 border-t pt-2 text-center">
-                  <MenuStatItem icon={<ClipboardList className="h-3.5 w-3.5" />} label="Pesanan" value={stat.pesanan} />
-                  <MenuStatItem icon={<ShoppingCart className="h-3.5 w-3.5" />} label="Terjual" value={stat.terjual} tone="good" />
-                  <MenuStatItem icon={<Clock className="h-3.5 w-3.5" />} label="Belum diambil" value={stat.belumDiambil} tone="warn" />
-                </div>
+                
+                {isAdmin && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 rounded-xl hover:text-slate-600" onClick={() => openEdit(m)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <PinConfirmDelete label={m.name} requirePin={stat.pesanan > 0 || stat.terjual > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
-
-      {menus.length > 0 && (
-        <div className="rounded-[16px] border bg-gradient-to-br from-emerald-50/60 to-card p-3.5 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
-              <ClipboardList className="h-4.5 w-4.5" />
-            </div>
-            <div className="text-sm">
-              <div className="font-semibold">Ringkasan Menu</div>
-              <div className="text-xs text-muted-foreground">Total semua menu</div>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
-            <SummaryStat label="Pesanan" value={summary.pesanan} />
-            <SummaryStat label="Terjual" value={summary.terjual} tone="good" />
-            <SummaryStat label="Belum diambil" value={summary.belumDiambil} tone="warn" />
-          </div>
-        </div>
-      )}
     </div>
   );
-}
 
 function MenuStatItem({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "good" | "warn" }) {
   const cls = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-600" : "text-foreground";
@@ -365,80 +409,81 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* 1. TOMBOL PESANAN BARU (Hanya Admin) */}
       {isAdmin && (
         <div className="flex justify-end">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline" disabled={menus.length === 0} className="gap-1.5 rounded-xl border-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
-                <Plus className="h-4 w-4" /> Pesanan
+              <Button size="sm" variant="outline" disabled={menus.length === 0} className="h-10 gap-1.5 rounded-xl border-[#15803d] px-4 py-2 text-xs font-bold text-[#15803d] bg-white hover:bg-slate-50 shadow-sm">
+                <Plus className="h-4 w-4" /> Pesanan Baru
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Tambah Pesanan</DialogTitle></DialogHeader>
-              <form onSubmit={submit} className="space-y-3">
+            <DialogContent className="rounded-2xl">
+              <DialogHeader><DialogTitle className="text-sm font-bold">Tambah Pesanan</DialogTitle></DialogHeader>
+              <form onSubmit={submit} className="space-y-3 py-2">
                 <div>
-                  <Label>Nama Customer</Label>
-                  <Input value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Ketik nama customer..." autoComplete="off" />
+                  <Label className="text-xs">Nama Customer</Label>
+                  <Input value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Ketik nama..." autoComplete="off" className="rounded-xl mt-1 text-xs" />
                   {customerNames.length > 0 && (
-                    <select className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    <select className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
                       value="" onChange={(e) => { if (e.target.value) setCustomer(e.target.value); }}>
                       <option value="">Pilih Customer</option>
                       {customerNames.map((n) => <option key={n} value={n}>{n}</option>)}
                     </select>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Menu & Qty Pesan</Label>
-                  {menus.map((m) => {
-                    return (
-                      <div key={m.id} className="rounded-lg border p-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 text-sm min-w-0">
-                            <div className="font-medium truncate">{m.name}</div>
-                            <div className="text-xs text-muted-foreground">{fmtIDR(m.price)}</div>
-                          </div>
-                          <Input className="w-20" inputMode="numeric" placeholder="0" value={picks[m.id] || ""}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/[^\d]/g, "");
-                              const num = +raw || 0;
-                              setPicks((p) => ({ ...p, [m.id]: num ? String(num) : "" }));
-                            }} />
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                  <Label className="text-xs">Menu & Qty Pesan</Label>
+                  {menus.map((m) => (
+                    <div key={m.id} className="rounded-xl border border-slate-100 p-2 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 text-xs min-w-0">
+                          <div className="font-bold truncate text-slate-800">{m.name}</div>
+                          <div className="text-[10px] text-slate-500">{fmtIDR(m.price)}</div>
                         </div>
+                        <Input className="w-16 h-8 text-xs rounded-lg border-slate-200" inputMode="numeric" placeholder="0" value={picks[m.id] || ""}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^\d]/g, "");
+                            const num = +raw || 0;
+                            setPicks((p) => ({ ...p, [m.id]: num ? String(num) : "" }));
+                          }} />
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
-                <DialogFooter><Button type="submit" disabled={saving}>Simpan Pesanan</Button></DialogFooter>
+                <DialogFooter><Button type="submit" disabled={saving} className="rounded-xl bg-[#15803d] hover:bg-[#116631] text-xs w-full text-white">Simpan Pesanan</Button></DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
         </div>
       )}
 
+      {/* 2. PENCARIAN & FILTER */}
       {menus.length > 0 && orders.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex gap-2">
+        <div className="space-y-3">
+          <div className="flex gap-2 items-center">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchCustomer}
                 onChange={(e) => setSearchCustomer(e.target.value)}
                 placeholder="Cari nama customer..."
-                className="h-11 rounded-xl pl-9"
+                className="h-10 rounded-xl pl-9 bg-white border-slate-200 text-xs"
               />
             </div>
-            <button type="button" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border bg-card text-muted-foreground hover:text-foreground" aria-label="Filter">
+            <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-600 shadow-sm" aria-label="Filter">
               <Filter className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+          
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {filterButtons.map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setStatusFilter(key)}
-                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === key ? "border-emerald-600 bg-emerald-600 text-white shadow-sm" : "border-border bg-card text-muted-foreground hover:border-emerald-300 hover:text-foreground"}`}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${statusFilter === key ? "border-[#15803d] bg-[#15803d] text-white shadow-sm" : "border-slate-200 bg-white text-slate-500 hover:border-[#15803d] hover:text-slate-700"}`}
               >
                 {key !== "all" && <Filter className="h-3 w-3" />}
                 {label}
@@ -448,15 +493,17 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
         </div>
       )}
 
+      {/* 3. KONDISI KOSONG */}
       {menus.length === 0 && <Empty text="Tambahkan menu terlebih dahulu di tab Menu." />}
       {menus.length > 0 && orders.length === 0 && <Empty text="Belum ada pesanan." />}
       {menus.length > 0 && orders.length > 0 && filteredOrders.length === 0 && <Empty text="Tidak ada pesanan yang sesuai filter." />}
+      
+      {/* 4. DAFTAR KARTU PESANAN */}
       <div className="grid gap-3">
         {filteredOrders.map((o) => <OrderCard key={o.id} order={o} menus={menus} bazarId={bazarId} isAdmin={isAdmin} />)}
       </div>
     </div>
   );
-}
 
 function orderSoldQtyByMenu(db: ReturnType<typeof useDB>, orderId: string): Record<string, number> {
   const sold: Record<string, number> = {};
@@ -512,55 +559,45 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
   const initial = order.customer.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className={`rounded-[16px] border p-3.5 shadow-[0_2px_8px_rgba(0,0,0,.06)] ${status.fullSold ? "border-emerald-200 bg-emerald-50/40" : status.partialSold ? "border-amber-200 bg-amber-50/40" : "bg-card"}`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-base font-semibold text-primary">
-            {initial}
-          </div>
-          <div className="min-w-0">
-            <div className="font-semibold truncate">{order.customer}</div>
-            <div className="text-xs text-muted-foreground">{fmtDateTime(order.createdAt)}</div>
-          </div>
-        </div>
-        {status.fullSold ? (
-          <Badge className="shrink-0 gap-1 bg-emerald-600 text-white"><CheckCircle2 className="h-3 w-3" /> {status.label}</Badge>
-        ) : status.partialSold ? (
-          <Badge className="shrink-0 bg-amber-500 text-white">{status.label}</Badge>
-        ) : (
-          <Badge className="shrink-0 bg-slate-200 text-slate-700 hover:bg-slate-200">{status.label}</Badge>
-        )}
+    <div className="p-4 border border-slate-100 rounded-2xl shadow-sm bg-white">
+      {/* Baris Atas: Tanggal & Badge Status */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 mb-3">
+        <span className="text-[10px] font-bold text-slate-400">{fmtDateTime(order.createdAt)}</span>
+        <Badge className={`rounded-full text-[10px] px-2.5 py-0.5 border-none font-bold shadow-none uppercase tracking-wide ${
+          status.fullSold ? "bg-emerald-50 text-[#15803d]" : status.partialSold ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"
+        }`}>
+          {status.label}
+        </Badge>
       </div>
-      <ul className="mt-2.5 list-disc space-y-1 pl-4 text-sm marker:text-muted-foreground/60">
+
+      {/* Baris Tengah: Nama Pembeli */}
+      <div className="flex items-center gap-3 text-slate-900 font-black text-sm">
+        <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-50 border border-slate-100 text-slate-500 shrink-0">
+          {/* Pastikan icon User dari lucide-react sudah di-import di atas ya */}
+          <User className="h-4 w-4" />
+        </div>
+        <span className="truncate">{order.customer}</span>
+      </div>
+
+      {/* Baris Bawah: List Menu Menjorok */}
+      <div className="mt-3 space-y-1.5 pl-4 border-l-2 border-slate-100 ml-4">
         {displayItems.map((i) => (
-          <li key={i.menuId} className="flex justify-between gap-2 py-0.5">
-            <span className="min-w-0 truncate">{i.name} × {i.originalQty}</span>
-            <span className="shrink-0 whitespace-nowrap text-muted-foreground">{fmtIDR(i.price * i.originalQty)}</span>
-          </li>
+          <div key={i.menuId} className="text-xs font-medium flex justify-between items-center gap-2">
+            <span className="truncate text-slate-500">{i.name}</span>
+            <span className="font-bold text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded-md shrink-0">x{i.originalQty}</span>
+          </div>
         ))}
-      </ul>
-      <div className="mt-3 grid grid-cols-3 gap-2 border-t border-dashed pt-3 text-center">
-        <div>
-          <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><ClipboardList className="h-3 w-3" /> Total Item</div>
-          <div className="mt-0.5 text-sm font-bold">{totalItem}</div>
-        </div>
-        <div>
-          <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><Receipt className="h-3 w-3" /> Total Pesanan</div>
-          <div className="mt-0.5 whitespace-nowrap text-sm font-bold">{fmtIDR(totalPesanan)}</div>
-        </div>
-        <div>
-          <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><CheckCircle2 className="h-3 w-3" /> Status</div>
-          <div className={`mt-0.5 truncate text-xs font-semibold ${status.fullSold ? "text-emerald-600" : status.partialSold ? "text-amber-600" : "text-amber-600"}`}>{status.label}</div>
-        </div>
       </div>
+
+      {/* Tombol Aksi Bawaan */}
       {isAdmin && (
-        <div className="mt-3 flex flex-wrap gap-2.5">
+        <div className="mt-4 pt-3 border-t border-slate-50 flex flex-wrap gap-2 justify-end">
           {db.sales.some((sale) => sale.orderId === order.id) ? (
             <PinConfirmDelete
               label="pesanan"
               requirePin={false}
               canDelete={() => {
-                toast.error("Pesanan ini sudah memiliki riwayat penjualan. Hapus penjualan terkait terlebih dahulu sebelum menghapus pesanan.");
+                toast.error("Pesanan ini sudah memiliki riwayat penjualan.");
                 return false;
               }}
               onConfirm={() => {}}
@@ -570,7 +607,16 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
               <JualDialog order={order} menus={menus} bazarId={bazarId} />
               <EditOrderDialog order={order} menus={menus} />
               <GantiCustomerDialog order={order} menus={menus} />
-              <PinConfirmDelete label="pesanan" requirePin onConfirm={() => { setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); }); toast.success("Pesanan dihapus"); }} />
+              <PinConfirmDelete
+                label="pesanan"
+                requirePin
+                onConfirm={() => {
+                  setDB((d) => {
+                    d.orders = d.orders.filter((x) => x.id !== order.id);
+                  });
+                  toast.success("Pesanan dihapus");
+                }}
+              />
             </>
           )}
         </div>
@@ -910,29 +956,31 @@ function PenjualanTab({ sales, bazarName, isAdmin }: { sales: Sale[]; bazarName:
 
   if (sales.length === 0) return <Empty text="Belum ada penjualan." />;
   return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        <div className="flex gap-2">
+    <div className="space-y-4">
+      {/* 1. PENCARIAN & FILTER */}
+      <div className="space-y-3">
+        <div className="flex gap-2 items-center">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={searchCustomer}
               onChange={(e) => setSearchCustomer(e.target.value)}
               placeholder="Cari nama customer..."
-              className="h-11 rounded-xl pl-9"
+              className="h-10 rounded-xl pl-9 bg-white border-slate-200 text-xs"
             />
           </div>
-          <button type="button" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border bg-card text-muted-foreground hover:text-foreground" aria-label="Filter">
+          <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-600 shadow-sm" aria-label="Filter">
             <Filter className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+        
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {filterButtons.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => setStatusFilter(key)}
-              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === key ? "border-emerald-600 bg-emerald-600 text-white shadow-sm" : "border-border bg-card text-muted-foreground hover:border-emerald-300 hover:text-foreground"}`}
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${statusFilter === key ? "border-[#15803d] bg-[#15803d] text-white shadow-sm" : "border-slate-200 bg-white text-slate-500 hover:border-[#15803d] hover:text-slate-700"}`}
             >
               {key !== "all" && <Filter className="h-3 w-3" />}
               {label}
@@ -940,10 +988,12 @@ function PenjualanTab({ sales, bazarName, isAdmin }: { sales: Sale[]; bazarName:
           ))}
         </div>
       </div>
+
+      {/* 2. KONDISI KOSONG & DAFTAR PENJUALAN */}
       {filteredSales.length === 0 ? (
         <Empty text="Tidak ada penjualan yang sesuai filter." />
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-3 mt-2">
           {filteredSales.map((s) => <SaleCard key={s.id} sale={s} bazarName={bazarName} isAdmin={isAdmin} />)}
         </div>
       )}
@@ -1035,49 +1085,67 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
   const initial = sale.customer.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className="rounded-[16px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,.06)]">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-semibold ${status === "LUNAS" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-            {initial}
-          </div>
-          <div className="min-w-0">
-            <div className="truncate font-semibold">{sale.customer}</div>
-            <div className="text-xs text-muted-foreground">{fmtDateTime(sale.createdAt)}</div>
-          </div>
+    <div className="p-4 border border-slate-100 rounded-2xl shadow-sm bg-white">
+      {/* Baris Atas: Header & Status */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="text-[10px] font-bold text-slate-400">{fmtDateTime(sale.createdAt)}</div>
         </div>
-        <Badge className={`shrink-0 ${status === "LUNAS" ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>{status}</Badge>
+        <Badge className={`rounded-full text-[10px] px-2.5 py-0.5 border-none font-bold shadow-none uppercase tracking-wide ${
+          status === "LUNAS" ? "bg-emerald-50 text-[#15803d]" : "bg-amber-50 text-amber-600"
+        }`}>
+          {status}
+        </Badge>
       </div>
-      <ul className="mt-3 list-disc space-y-1 pl-4 text-sm marker:text-muted-foreground/60">
+
+      {/* Baris Tengah: Info Customer */}
+      <div className="flex items-center gap-3 text-slate-900 font-black text-sm mb-3">
+        <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-50 border border-slate-100 text-slate-500 shrink-0">
+          <User className="h-4 w-4" />
+        </div>
+        <span className="truncate">{sale.customer}</span>
+      </div>
+
+      {/* List Menu */}
+      <div className="space-y-1.5 pl-4 border-l-2 border-slate-100 ml-4 mb-4">
         {sale.items.map((i, idx) => (
-          <li key={idx} className="flex justify-between gap-2 py-0.5">
-            <span className="min-w-0 truncate">{i.name} × {i.qty}</span>
-            <span className="shrink-0 whitespace-nowrap">{fmtIDR(i.price * i.qty)}</span>
-          </li>
+          <div key={idx} className="text-xs font-medium flex justify-between items-center gap-2">
+            <span className="truncate text-slate-500">{i.name}</span>
+            <span className="font-bold text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded-md shrink-0">x{i.qty}</span>
+          </div>
         ))}
-      </ul>
-      {status === "LUNAS" ? (
-        <div className="mt-3 flex divide-x rounded-xl border bg-muted/30 px-2.5">
-          <StatGroupItem icon={<Receipt className="h-4 w-4" />} tone="emerald" label="Total" value={fmtIDR(sale.total)} />
-          <StatGroupItem icon={<Wallet className="h-4 w-4" />} tone="blue" label="Bayar" value={fmtIDR(sale.paid)} />
-          <StatGroupItem icon={<ShoppingBag className="h-4 w-4" />} tone="violet" label="Metode" value={sale.method === "cash" ? "Cash" : "Transfer"} />
+      </div>
+
+      {/* Grid Informasi (Total/Bayar/Sisa) */}
+      <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded-xl">
+        <div className="text-center">
+          <div className="text-[9px] text-slate-400 font-bold uppercase">Total</div>
+          <div className="text-xs font-black text-slate-700">{fmtIDR(sale.total)}</div>
         </div>
-      ) : (
-        <div className="mt-3 flex divide-x rounded-xl border border-amber-200 bg-amber-50/50 px-2.5">
-          <StatGroupItem icon={<Receipt className="h-4 w-4" />} tone="emerald" label="Total" value={fmtIDR(sale.total)} />
-          <StatGroupItem icon={<Wallet className="h-4 w-4" />} tone="blue" label="Bayar" value={fmtIDR(sale.paid)} />
-          <StatGroupItem icon={<UserCog className="h-4 w-4" />} tone="amber" label="Sisa" value={fmtIDR(outstanding)} />
+        <div className="text-center border-l border-slate-200">
+          <div className="text-[9px] text-slate-400 font-bold uppercase">Bayar</div>
+          <div className="text-xs font-black text-emerald-600">{fmtIDR(sale.paid)}</div>
         </div>
-      )}
-      {sale.note && <div className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">📝 {sale.note}</div>}
+        <div className="text-center border-l border-slate-200">
+          <div className="text-[9px] text-slate-400 font-bold uppercase">{status === "LUNAS" ? "Metode" : "Sisa"}</div>
+          <div className="text-xs font-black text-slate-700">
+            {status === "LUNAS" ? (sale.method === "cash" ? "Cash" : "Transfer") : fmtIDR(outstanding)}
+          </div>
+        </div>
+      </div>
+
+      {/* Note & Proof */}
+      {sale.note && <div className="mt-3 text-[10px] bg-amber-50 text-amber-700 p-2 rounded-lg italic">"{sale.note}"</div>}
       {sale.proof && (
-        <a href={sale.proof} target="_blank" rel="noreferrer" className="mt-2 inline-block">
-          <img src={sale.proof} alt="bukti" className="h-16 rounded border" />
+        <a href={sale.proof} target="_blank" rel="noreferrer" className="mt-3 block">
+          <img src={sale.proof} alt="bukti" className="h-20 w-full object-cover rounded-xl border border-slate-100" />
         </a>
       )}
-      <div className="mt-3 flex flex-wrap items-center gap-2.5">
-        <Button size="sm" variant="outline" onClick={printNota} className="h-10 gap-1.5 rounded-xl border-emerald-500 px-4 text-emerald-700 hover:bg-emerald-50">
-          <Printer className="h-4 w-4" /> Nota
+
+      {/* Tombol Aksi */}
+      <div className="mt-4 pt-3 border-t border-slate-50 flex gap-2 justify-end">
+        <Button size="sm" variant="outline" onClick={printNota} className="h-9 rounded-xl border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50">
+          <Printer className="h-4 w-4 mr-1.5" /> Nota
         </Button>
         {isAdmin && <PinConfirmDelete label="penjualan" requirePin canDelete={canDeleteSale} onConfirm={doDelete} />}
       </div>
