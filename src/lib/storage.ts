@@ -16,6 +16,7 @@ export type MenuItem = {
   qty: number;
   createdAt?: number;
   cost?: number;
+  photo?: string;
 };
 
 export type OrderItem = { menuId: string; qty: number };

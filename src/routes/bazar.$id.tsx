@@ -171,22 +171,31 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [photo, setPhoto] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const reset = () => { setEditId(null); setName(""); setPrice(""); };
-  const openEdit = (m: MenuItem) => { setEditId(m.id); setName(m.name); setPrice(String(m.price)); setOpen(true); };
+  const reset = () => { setEditId(null); setName(""); setPrice(""); setPhoto(undefined); };
+  const openEdit = (m: MenuItem) => { setEditId(m.id); setName(m.name); setPrice(String(m.price)); setPhoto(m.photo); setOpen(true); };
+
+  const onFile = (f?: File) => {
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => setPhoto(r.result as string);
+    r.readAsDataURL(f);
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Nama menu wajib");
     if (saving) return;
     setSaving(true);
-    const newMenu: MenuItem = { id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: 0, createdAt: Date.now() };
+    const newMenu: MenuItem = { id: uid(), bazarId, name: name.trim(), price: +price || 0, cost: 0, qty: 0, createdAt: Date.now(), photo };
     setDB((d) => {
       if (editId) {
         const m = d.menus.find((x) => x.id === editId);
-        if (m) { m.name = name.trim(); m.price = +price || 0; }
+        if (m) { m.name = name.trim(); m.price = +price || 0; m.photo = photo; }
       } else {
         d.menus.push(newMenu);
       }
@@ -217,6 +226,25 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
             <DialogContent className="rounded-2xl">
               <DialogHeader><DialogTitle className="text-sm font-bold">{editId ? "Edit" : "Tambah"} Menu</DialogTitle></DialogHeader>
               <form onSubmit={submit} className="space-y-3 py-2">
+                <div>
+                  <Label className="text-xs">Foto Menu (opsional)</Label>
+                  <div className="mt-1 flex items-center gap-3">
+                    <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+                      {photo ? <img src={photo} alt="Foto menu" className="h-full w-full object-cover" /> : <span className="text-2xl">🍲</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button type="button" variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => fileRef.current?.click()}>
+                        <Upload className="h-3.5 w-3.5" /> {photo ? "Ganti Foto" : "Upload Foto"}
+                      </Button>
+                      {photo && (
+                        <Button type="button" variant="ghost" size="sm" className="rounded-xl text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50" onClick={() => setPhoto(undefined)}>
+                          Hapus
+                        </Button>
+                      )}
+                    </div>
+                    <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+                  </div>
+                </div>
                 <div>
                   <Label className="text-xs">Nama Menu</Label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl mt-1 text-xs" />
@@ -267,8 +295,8 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
               <div key={m.id} className="p-3 border border-slate-100 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] bg-white">
                 <div className="flex items-center gap-3">
                   {/* Foto/Emoji */}
-                  <div className="h-14 w-14 shrink-0 rounded-xl bg-gradient-to-br from-emerald-50 to-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
-                    <span className="text-2xl">🍲</span>
+                  <div className="h-14 w-14 shrink-0 rounded-full bg-gradient-to-br from-emerald-50 to-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
+                    {m.photo ? <img src={m.photo} alt={m.name} className="h-full w-full object-cover" /> : <span className="text-2xl">🍲</span>}
                   </div>
                   {/* Nama & harga */}
                   <div className="min-w-0 w-24 sm:w-32">
