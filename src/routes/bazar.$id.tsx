@@ -123,12 +123,12 @@ function BazarDetail() {
           {/* ==========================================
               1. TABS LIST NAVIGASI (Garis Hijau Tipis Sesuai Gambar)
              ========================================== */}
-          <TabsList className="flex gap-1 overflow-x-auto bg-transparent border-b border-slate-100 rounded-none h-auto p-0 scrollbar-none justify-start mb-2">
+          <TabsList className="grid grid-cols-5 gap-0.5 bg-transparent border-b border-slate-100 rounded-none h-auto p-0 mb-2">
             {(["menu", "pesanan", "penjualan", "pengeluaran", "rekapan"] as const).map((k) => (
               <TabsTrigger
                 key={k}
                 value={k}
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#15803d] data-[state=active]:text-[#15803d] data-[state=active]:font-extrabold text-slate-400 font-bold text-xs rounded-none shadow-none px-5 py-2.5 transition-all bg-transparent border-b-2 border-transparent"
+                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#15803d] data-[state=active]:text-[#15803d] data-[state=active]:font-extrabold text-slate-400 font-bold text-[10.5px] rounded-none shadow-none px-0.5 py-2.5 transition-all bg-transparent border-b-2 border-transparent truncate"
               >
                 {k === "menu" ? "Menu" : k === "pesanan" ? "Pesanan" : k === "penjualan" ? "Penjualan" : k === "pengeluaran" ? "Pengeluaran" : "Rekapan"}
               </TabsTrigger>
@@ -474,9 +474,6 @@ function PesananTab({ bazarId, menus, orders, isAdmin }: { bazarId: string; menu
                 className="h-10 rounded-xl pl-9 bg-white border-slate-200 text-xs"
               />
             </div>
-            <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-600 shadow-sm" aria-label="Filter">
-              <Filter className="h-4 w-4" />
-            </button>
           </div>
           
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -576,6 +573,7 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
   const status = useMemo(() => orderStatusInfo(db, order), [db, order]);
   const totalItem = displayItems.reduce((s, i) => s + i.originalQty, 0);
   const totalPesanan = displayItems.reduce((s, i) => s + i.price * i.originalQty, 0);
+  const sisaItem = displayItems.reduce((s, i) => s + i.remainingQty, 0);
   const hasSales = db.sales.some((sale) => sale.orderId === order.id);
   const avatar = avatarStyle(order.customer);
 
@@ -630,9 +628,9 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
         </div>
         <div>
           <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-amber-600">
-            <ClipboardCheck className="h-3.5 w-3.5" /> Status
+            <ClipboardCheck className="h-3.5 w-3.5" /> Sisa Item
           </div>
-          <div className="text-[11px] font-bold text-slate-800 mt-0.5 truncate">{status.label}</div>
+          <div className="text-sm font-black text-slate-800 mt-0.5">{sisaItem}</div>
         </div>
       </div>
 
@@ -1013,9 +1011,6 @@ function PenjualanTab({ sales, bazarName, isAdmin }: { sales: Sale[]; bazarName:
               className="h-10 rounded-xl pl-9 bg-white border-slate-200 text-xs"
             />
           </div>
-          <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-600 shadow-sm" aria-label="Filter">
-            <Filter className="h-4 w-4" />
-          </button>
         </div>
         
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -1126,13 +1121,20 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
     w.document.close();
   };
 
+  const avatar = avatarStyle(sale.customer);
+
   return (
     <div className="p-4 border border-slate-100 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white">
-      {/* Header: Nama + tanggal .... Badge status */}
+      {/* Header: Avatar + Nama + Tanggal .... Badge status */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate text-base font-black text-slate-900">{sale.customer}</div>
-          <div className="mt-0.5 text-[11px] font-medium text-slate-400">{fmtDateTime(sale.createdAt)}</div>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-extrabold ${avatar.bg} ${avatar.text}`}>
+            {avatar.initial}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-base font-black text-slate-900">{sale.customer}</div>
+            <div className="mt-0.5 text-[11px] font-medium text-slate-400">{fmtDateTime(sale.createdAt)}</div>
+          </div>
         </div>
         <Badge className={`shrink-0 rounded-full border-none px-3 py-1 text-[11px] font-bold uppercase tracking-wide shadow-none text-white ${
           status === "LUNAS" ? "bg-emerald-600" : "bg-amber-500"
@@ -1274,19 +1276,14 @@ function PengeluaranTab({ bazarId, expenses, isAdmin }: { bazarId: string; expen
       )}
 
       {expenses.length > 0 && (
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              placeholder="Cari nama belanjaan..."
-              className="h-11 rounded-xl pl-9"
-            />
-          </div>
-          <button type="button" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border bg-card text-muted-foreground hover:text-foreground" aria-label="Filter">
-            <Filter className="h-4 w-4" />
-          </button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            placeholder="Cari nama belanjaan..."
+            className="h-11 rounded-xl pl-9"
+          />
         </div>
       )}
 
