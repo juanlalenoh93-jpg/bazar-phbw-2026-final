@@ -303,11 +303,13 @@ export function PinConfirmDelete({
   label,
   requirePin = true,
   canDelete,
+  buttonClassName,
 }: {
   onConfirm: () => void;
   label: string;
   requirePin?: boolean;
   canDelete?: () => boolean;
+  buttonClassName?: string;
 }) {
   const [pin, setPin] = useState("");
   const [open, setOpen] = useState(false);
@@ -347,7 +349,12 @@ export function PinConfirmDelete({
 
   return (
     <>
-      <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-slate-50 rounded-lg" onClick={startDelete}>
+      <Button
+        size="icon"
+        variant="ghost"
+        className={buttonClassName || "h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-slate-50 rounded-lg"}
+        onClick={startDelete}
+      >
         <Trash2 className="h-4 w-4 text-rose-600 stroke-[2.5]" />
       </Button>
       <AlertDialog open={open} onOpenChange={(v) => { if (!v) reset(); else setOpen(true); }}>

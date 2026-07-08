@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, User, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag, Lightbulb, BarChart3, CalendarDays, Package, ClipboardCheck, DollarSign, Banknote, Trash2, FileText, CreditCard } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag, Lightbulb, BarChart3, CalendarDays, Package, ClipboardCheck, DollarSign, Banknote, Trash2, FileText, CreditCard } from "lucide-react";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo,
@@ -541,6 +541,23 @@ function orderDisplayItems(db: ReturnType<typeof useDB>, order: Order, menus: Me
   }).filter((item) => item.originalQty > 0);
 }
 
+const AVATAR_PALETTE = [
+  { bg: "bg-violet-100", text: "text-violet-700" },
+  { bg: "bg-emerald-100", text: "text-emerald-700" },
+  { bg: "bg-blue-100", text: "text-blue-700" },
+  { bg: "bg-amber-100", text: "text-amber-700" },
+  { bg: "bg-rose-100", text: "text-rose-700" },
+  { bg: "bg-cyan-100", text: "text-cyan-700" },
+];
+
+function avatarStyle(name: string) {
+  const trimmed = name.trim();
+  const initial = trimmed.charAt(0).toUpperCase() || "?";
+  const code = trimmed.charCodeAt(0) || 0;
+  const tone = AVATAR_PALETTE[code % AVATAR_PALETTE.length];
+  return { initial, ...tone };
+}
+
 function orderStatusInfo(db: ReturnType<typeof useDB>, order: Order) {
   const soldQty = db.sales
     .filter((sale) => sale.orderId === order.id)
@@ -560,28 +577,30 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
   const totalItem = displayItems.reduce((s, i) => s + i.originalQty, 0);
   const totalPesanan = displayItems.reduce((s, i) => s + i.price * i.originalQty, 0);
   const hasSales = db.sales.some((sale) => sale.orderId === order.id);
+  const avatar = avatarStyle(order.customer);
 
   return (
     <div className="p-4 border border-slate-100 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white">
-      {/* Baris Atas: Tanggal & Badge Status */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-          <CalendarDays className="h-3.5 w-3.5" />
-          {fmtDateTime(order.createdAt)}
+      {/* Header: Avatar + Nama + Tanggal .... Badge Status */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-extrabold ${avatar.bg} ${avatar.text}`}>
+            {avatar.initial}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-base font-black text-slate-900">{order.customer}</div>
+            <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-slate-400">
+              <CalendarDays className="h-3 w-3" />
+              {fmtDateTime(order.createdAt)}
+            </div>
+          </div>
         </div>
-        <Badge className={`rounded-full text-[10px] px-2.5 py-1 border-none font-bold shadow-none uppercase tracking-wide ${
+        <Badge className={`shrink-0 rounded-full border-none px-2.5 py-1 text-[11px] font-semibold shadow-none ${
           status.fullSold ? "bg-emerald-100 text-emerald-700" : status.partialSold ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
         }`}>
+          {status.fullSold && <CheckCircle2 className="mr-1 inline h-3 w-3" />}
           {status.label}
         </Badge>
-      </div>
-
-      {/* Nama Pembeli */}
-      <div className="mt-3 flex items-center gap-2.5 text-slate-900 font-black text-base">
-        <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
-          <User className="h-4 w-4" />
-        </div>
-        <span className="truncate">{order.customer}</span>
       </div>
 
       {/* List Menu — bullet + harga di kanan */}
@@ -635,6 +654,7 @@ function OrderCard({ order, menus, bazarId, isAdmin }: { order: Order; menus: Me
               <PinConfirmDelete
                 label="pesanan"
                 requirePin
+                buttonClassName="h-10 w-10 rounded-xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
                 onConfirm={() => {
                   setDB((d) => { d.orders = d.orders.filter((x) => x.id !== order.id); });
                   toast.success("Pesanan dihapus");
@@ -1106,29 +1126,19 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
     w.document.close();
   };
 
-  const initial = sale.customer.trim().charAt(0).toUpperCase() || "?";
-
   return (
     <div className="p-4 border border-slate-100 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white">
-      {/* Header: tanggal + status */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-          <CalendarDays className="h-3.5 w-3.5" />
-          {fmtDateTime(sale.createdAt)}
+      {/* Header: Nama + tanggal .... Badge status */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-base font-black text-slate-900">{sale.customer}</div>
+          <div className="mt-0.5 text-[11px] font-medium text-slate-400">{fmtDateTime(sale.createdAt)}</div>
         </div>
-        <Badge className={`rounded-full text-[10px] px-2.5 py-1 border-none font-bold shadow-none uppercase tracking-wide ${
-          status === "LUNAS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+        <Badge className={`shrink-0 rounded-full border-none px-3 py-1 text-[11px] font-bold uppercase tracking-wide shadow-none text-white ${
+          status === "LUNAS" ? "bg-emerald-600" : "bg-amber-500"
         }`}>
           {status}
         </Badge>
-      </div>
-
-      {/* Nama customer */}
-      <div className="mt-3 flex items-center gap-2.5 text-slate-900 font-black text-base">
-        <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
-          <User className="h-4 w-4" />
-        </div>
-        <span className="truncate">{sale.customer}</span>
       </div>
 
       {/* List menu — stripe */}
@@ -1146,13 +1156,20 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
       <div className="mt-3 pt-3 border-t border-dashed border-slate-200 grid grid-cols-3 gap-2">
         <SaleStatCell icon={<DollarSign className="h-4 w-4" />} tone="emerald" label="Total" value={fmtIDR(sale.total)} />
         <SaleStatCell icon={<Wallet className="h-4 w-4" />} tone="blue" label="Bayar" value={fmtIDR(sale.paid)} />
-        <SaleStatCell
-          icon={status === "LUNAS" ? <Banknote className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
-          tone="amber"
-          label={status === "LUNAS" ? "Metode" : "Sisa"}
-          value={status === "LUNAS" ? (sale.method === "cash" ? "Cash" : "Transfer") : fmtIDR(outstanding)}
-        />
+        {status === "LUNAS" ? (
+          <SaleStatCell icon={<CreditCard className="h-4 w-4" />} tone="violet" label="Metode" value={sale.method === "cash" ? "Cash" : "Transfer"} />
+        ) : (
+          <SaleStatCell icon={<Banknote className="h-4 w-4" />} tone="amber" label="Sisa" value={fmtIDR(outstanding)} />
+        )}
       </div>
+
+      {/* Baris Metode (khusus Piutang, karena kolom stat sudah dipakai untuk "Sisa") */}
+      {status === "PIUTANG" && (
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          <Wallet className="h-3.5 w-3.5" />
+          Metode: <span className="font-bold text-slate-700">{sale.method === "cash" ? "Cash" : "Transfer"}</span>
+        </div>
+      )}
 
       {/* Note & Proof */}
       {sale.note && <div className="mt-3 text-[10px] bg-amber-50 text-amber-700 p-2 rounded-lg italic">"{sale.note}"</div>}
@@ -1167,17 +1184,26 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
         <Button size="sm" variant="outline" onClick={printNota} className="h-9 rounded-xl border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50">
           <Printer className="h-4 w-4 mr-1.5" /> Nota
         </Button>
-        {isAdmin && <PinConfirmDelete label="penjualan" requirePin canDelete={canDeleteSale} onConfirm={doDelete} />}
+        {isAdmin && (
+          <PinConfirmDelete
+            label="penjualan"
+            requirePin
+            canDelete={canDeleteSale}
+            onConfirm={doDelete}
+            buttonClassName="h-9 w-9 rounded-xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
+          />
+        )}
       </div>
     </div>
   );
 }
 
-function SaleStatCell({ icon, tone, label, value }: { icon: React.ReactNode; tone: "emerald" | "blue" | "amber"; label: string; value: string }) {
+function SaleStatCell({ icon, tone, label, value }: { icon: React.ReactNode; tone: "emerald" | "blue" | "amber" | "violet"; label: string; value: string }) {
   const toneMap = {
     emerald: "bg-emerald-100 text-emerald-700",
     blue: "bg-blue-100 text-blue-700",
     amber: "bg-amber-100 text-amber-700",
+    violet: "bg-violet-100 text-violet-700",
   } as const;
   return (
     <div className="flex flex-col items-center text-center min-w-0">
