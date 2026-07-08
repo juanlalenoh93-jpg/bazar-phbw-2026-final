@@ -299,25 +299,25 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
                     {m.photo ? <img src={m.photo} alt={m.name} className="h-full w-full object-cover" /> : <span className="text-2xl">🍲</span>}
                   </div>
                   {/* Nama & harga */}
-                  <div className="min-w-0 w-24 sm:w-32">
-                    <h3 className="font-bold text-[13px] text-slate-900 truncate leading-tight">{m.name}</h3>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-sm text-slate-900 truncate leading-tight">{m.name}</h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">{fmtIDR(m.price)}</p>
-                  </div>
-                  {/* 3 kolom statistik */}
-                  <div className="flex-1 grid grid-cols-3 gap-1 min-w-0">
-                    <MenuStatCell icon={<ClipboardList className="h-3.5 w-3.5" />} tone="blue" label="Pesanan" value={stat.pesanan} />
-                    <MenuStatCell icon={<ShoppingCart className="h-3.5 w-3.5" />} tone="green" label="Terjual" value={stat.terjual} />
-                    <MenuStatCell icon={<Clock className="h-3.5 w-3.5" />} tone="amber" label="Belum diambil" value={stat.belumDiambil} />
                   </div>
                   {/* Aksi */}
                   {isAdmin && (
-                    <div className="flex shrink-0 items-center gap-0.5 border-l border-slate-100 pl-1 ml-1">
+                    <div className="flex shrink-0 items-center gap-0.5">
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg" onClick={() => openEdit(m)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <PinConfirmDelete label={m.name} requirePin={stat.pesanan > 0 || stat.terjual > 0} onConfirm={() => { setDB((d) => { d.menus = d.menus.filter((x) => x.id !== m.id); }); toast.success("Menu dihapus"); }} />
                     </div>
                   )}
+                </div>
+                {/* 3 kolom statistik — baris terpisah supaya label tidak kepotong di layar sempit */}
+                <div className="mt-3 pt-3 border-t border-dashed border-slate-200 grid grid-cols-3 gap-1">
+                  <MenuStatCell icon={<ClipboardList className="h-3.5 w-3.5" />} tone="blue" label="Pesanan" value={stat.pesanan} />
+                  <MenuStatCell icon={<ShoppingCart className="h-3.5 w-3.5" />} tone="green" label="Terjual" value={stat.terjual} />
+                  <MenuStatCell icon={<Clock className="h-3.5 w-3.5" />} tone="amber" label="Belum diambil" value={stat.belumDiambil} />
                 </div>
               </div>
             );
@@ -327,15 +327,17 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
 
       {/* 5. FOOTER RINGKASAN MENU */}
       {menus.length > 0 && (
-        <div className="flex items-center gap-3 p-3 border border-slate-100 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] bg-white">
-          <div className="h-12 w-12 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center">
-            <BarChart3 className="h-6 w-6 text-emerald-600" />
+        <div className="p-3 border border-slate-100 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] bg-white">
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 shrink-0 rounded-full bg-emerald-50 flex items-center justify-center">
+              <BarChart3 className="h-6 w-6 text-emerald-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-sm text-slate-900 leading-tight">Ringkasan Menu</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Total semua menu</div>
+            </div>
           </div>
-          <div className="min-w-0 w-24 sm:w-32">
-            <div className="font-bold text-[13px] text-slate-900 leading-tight">Ringkasan Menu</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Total semua menu</div>
-          </div>
-          <div className="flex-1 grid grid-cols-3 gap-1 min-w-0">
+          <div className="mt-3 pt-3 border-t border-dashed border-slate-200 grid grid-cols-3 gap-1">
             <MenuStatCell icon={<ClipboardList className="h-3.5 w-3.5" />} tone="blue" label="Pesanan" value={summary.pesanan} />
             <MenuStatCell icon={<ShoppingCart className="h-3.5 w-3.5" />} tone="green" label="Terjual" value={summary.terjual} />
             <MenuStatCell icon={<Clock className="h-3.5 w-3.5" />} tone="amber" label="Belum diambil" value={summary.belumDiambil} />
