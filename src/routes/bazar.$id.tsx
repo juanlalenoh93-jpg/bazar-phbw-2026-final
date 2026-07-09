@@ -246,7 +246,7 @@ function MenuTab({ bazarId, menus, isAdmin }: { bazarId: string; menus: MenuItem
                         </Button>
                       )}
                     </div>
-                    <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+                    <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
                   </div>
                 </div>
                 <div>
@@ -887,7 +887,7 @@ function JualDialog({ order, menus, bazarId }: { order: Order; menus: MenuItem[]
                 <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
                   <Upload className="h-4 w-4" /> {proof ? "Ganti" : "Upload / Kamera"}
                 </Button>
-                <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
                 {proof && <img src={proof} alt="bukti" className="h-12 w-12 rounded border object-cover" />}
               </div>
             </div>

@@ -193,7 +193,19 @@ function BazarList() {
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg" onClick={() => openEdit(b.id)}>
                         <Pencil className="h-4 w-4 text-slate-700 stroke-[2.5]" />
                       </Button>
-                      <PinConfirmDelete onConfirm={() => remove(b.id)} label={b.name} requirePin={bazarHasData(b.id)} />
+                      <PinConfirmDelete
+                        onConfirm={() => remove(b.id)}
+                        label={b.name}
+                        canDelete={() => {
+                          if (bazarHasData(b.id)) {
+                            toast.error(
+                              `Bazar "${b.name}" masih memiliki data (menu/pesanan/penjualan/pengeluaran/piutang). Hapus atau pindahkan data tersebut dulu sebelum menghapus bazar ini.`,
+                            );
+                            return false;
+                          }
+                          return true;
+                        }}
+                      />
                     </div>
                   )}
                 </div>
