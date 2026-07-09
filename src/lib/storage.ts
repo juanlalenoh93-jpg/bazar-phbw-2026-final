@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { fetchRemoteState, scheduleRemotePush, pushRemoteStateNow, type SyncedState } from "./supabase-sync";
 
 // =============== Types ===============
 export type Bazar = {
@@ -118,6 +119,7 @@ function save() {
   if (typeof window === "undefined") return;
   localStorage.setItem(KEY, JSON.stringify(db));
   listeners.forEach((l) => l());
+  syncToRemote();
 }
 
 export function getDB(): DB {
@@ -142,6 +144,7 @@ export function setDB(updater: (d: DB) => DB | void) {
     localStorage.setItem(KEY, JSON.stringify(db));
   }
   listeners.forEach((l) => l());
+  syncToRemote();
 }
 
 // ------- Logo (header) -------
@@ -170,6 +173,7 @@ export function setLogo(value: string | null) {
     else localStorage.removeItem(LOGO_KEY);
   }
   logoListeners.forEach((l) => l());
+  syncToRemote();
 }
 
 export function useLogo(): string | null {
@@ -209,6 +213,7 @@ export function setRightLogo(value: string | null) {
     else localStorage.removeItem(RIGHT_LOGO_KEY);
   }
   rightLogoListeners.forEach((l) => l());
+  syncToRemote();
 }
 
 export function useRightLogo(): string | null {
@@ -248,6 +253,7 @@ export function setWorkspaceLogo(value: string | null) {
     else localStorage.removeItem(WORKSPACE_LOGO_KEY);
   }
   workspaceLogoListeners.forEach((l) => l());
+  syncToRemote();
 }
 
 export function useWorkspaceLogo(): string | null {
@@ -508,6 +514,7 @@ function saveCustomers() {
   customerMaster = uniqueSortedNames(customerMaster || []);
   localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customerMaster || []));
   customerListeners.forEach((l) => l());
+  syncToRemote();
 }
 
 export function addCustomerToMaster(name: string) {
@@ -565,8 +572,10 @@ const BACKUP_KEYS = [
   "phbw-2026-db-v1",
   "phbw-2026-logo-v1",
   "phbw-2026-right-logo-v1",
+  "phbw-2026-workspace-logo-v1",
   "phbw-2026-main-header-v1",
   "phbw-2026-workspace-header-v1",
+  "phbw-2026-org-name-v1",
   "phbw-2026-pin-v1",
   "phbw-2026-customers-v1",
   "phbw-2026-customers-deleted-v1",
@@ -630,6 +639,7 @@ export function restoreFromBackup(file: File): Promise<void> {
         loaded = false;
         logoLoaded = false;
         rightLogoLoaded = false;
+        workspaceLogoLoaded = false;
         customerMaster = null;
         deletedCustomerMaster = null;
         db = initialDB;
@@ -637,7 +647,11 @@ export function restoreFromBackup(file: File): Promise<void> {
         listeners.forEach((l) => l());
         logoListeners.forEach((l) => l());
         rightLogoListeners.forEach((l) => l());
+        workspaceLogoListeners.forEach((l) => l());
         customerListeners.forEach((l) => l());
+
+        // Restore lokal dianggap perubahan baru → dorong ke Supabase juga.
+        syncToRemote();
 
         resolve();
       } catch {
@@ -646,4 +660,88 @@ export function restoreFromBackup(file: File): Promise<void> {
     };
     reader.readAsText(file);
   });
+}
+
+// =============== Sinkronisasi ke Supabase ===============
+// Lihat komentar lengkap di src/lib/supabase-sync.ts untuk penjelasan desainnya.
+
+function buildSyncSnapshot(): SyncedState {
+  load();
+  loadLogo();
+  loadRightLogo();
+  loadWorkspaceLogo();
+  loadCustomers();
+  loadDeletedCustomers();
+  return {
+    db,
+    logo,
+    rightLogo,
+    workspaceLogo,
+    customers: customerMaster || [],
+    customersDeleted: deletedCustomerMaster || [],
+  };
+}
+
+function syncToRemote() {
+  if (typeof window === "undefined") return;
+  scheduleRemotePush(buildSyncSnapshot());
+}
+
+function applyRemoteState(remote: SyncedState) {
+  if (remote.db && typeof remote.db === "object") {
+    db = { ...initialDB, ...(remote.db as DB) };
+    loaded = true;
+    localStorage.setItem(KEY, JSON.stringify(db));
+  }
+  logo = remote.logo ?? null;
+  logoLoaded = true;
+  if (logo) localStorage.setItem(LOGO_KEY, logo); else localStorage.removeItem(LOGO_KEY);
+
+  rightLogo = remote.rightLogo ?? null;
+  rightLogoLoaded = true;
+  if (rightLogo) localStorage.setItem(RIGHT_LOGO_KEY, rightLogo); else localStorage.removeItem(RIGHT_LOGO_KEY);
+
+  workspaceLogo = remote.workspaceLogo ?? null;
+  workspaceLogoLoaded = true;
+  if (workspaceLogo) localStorage.setItem(WORKSPACE_LOGO_KEY, workspaceLogo); else localStorage.removeItem(WORKSPACE_LOGO_KEY);
+
+  customerMaster = uniqueSortedNames(remote.customers || []);
+  localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customerMaster));
+  deletedCustomerMaster = remote.customersDeleted || [];
+  localStorage.setItem(CUSTOMER_DELETED_KEY, JSON.stringify(deletedCustomerMaster));
+
+  dbSnapshot = db;
+  listeners.forEach((l) => l());
+  logoListeners.forEach((l) => l());
+  rightLogoListeners.forEach((l) => l());
+  workspaceLogoListeners.forEach((l) => l());
+  customerListeners.forEach((l) => l());
+}
+
+async function initSupabaseSync() {
+  try {
+    const remote = await fetchRemoteState();
+    if (remote) {
+      // Supabase sudah punya data (mis. dari perangkat/sesi lain) →
+      // pakai itu sebagai sumber kebenaran, timpa data lokal di HP ini.
+      applyRemoteState(remote);
+    } else {
+      // Supabase masih kosong (baru pertama kali dipasang) → unggah
+      // data yang sudah ada di HP ini sebagai data awal di Supabase.
+      const snapshot = buildSyncSnapshot();
+      const hasLocalData =
+        snapshot.db && typeof snapshot.db === "object" &&
+        Object.values(snapshot.db as DB).some((v) => Array.isArray(v) ? v.length > 0 : !!v);
+      if (hasLocalData) {
+        await pushRemoteStateNow(snapshot);
+      }
+    }
+  } catch (err) {
+    console.warn("[supabase-sync] Inisialisasi sinkronisasi gagal:", err);
+  }
+}
+
+if (typeof window !== "undefined") {
+  // Dijalankan sekali saat aplikasi pertama kali dibuka di browser.
+  void initSupabaseSync();
 }
