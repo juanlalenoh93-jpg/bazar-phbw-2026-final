@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, MessageCircle, Pencil, ChevronRight, Search, SlidersHorizontal, BarChart3, Wallet } from "lucide-react";
+import { ArrowLeft, MessageSquareText, Pencil, ChevronRight, Search, BarChart3, Wallet, ArrowDownWideNarrow } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDB, fmtIDR, saleOutstanding } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { shareToWhatsApp } from "@/lib/utils";
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
 
 export const Route = createFileRoute("/piutang/")({
   component: PiutangList,
@@ -39,6 +40,7 @@ function PiutangList() {
   const [showFormat, setShowFormat] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [q, setQ] = useState("");
+  const [sortHighest, setSortHighest] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(TEMPLATE_KEY);
@@ -60,10 +62,10 @@ function PiutangList() {
     return { list, totalAll };
   }, [db]);
 
-  const filtered = useMemo(
-    () => list.filter(([c]) => c.toLowerCase().includes(q.trim().toLowerCase())),
-    [list, q],
-  );
+  const filtered = useMemo(() => {
+    const arr = list.filter(([c]) => c.toLowerCase().includes(q.trim().toLowerCase()));
+    return sortHighest ? [...arr].sort((a, b) => b[1] - a[1]) : arr;
+  }, [list, q, sortHighest]);
 
   const buildMessage = () => {
     const lines = list.map(([c, v], i) => `${i + 1}. ${c}: ${fmtIDR(v)}`).join("\n");
@@ -101,9 +103,9 @@ function PiutangList() {
           type="button"
           onClick={() => setShowFormat((v) => !v)}
           className="mt-8 grid h-10 w-10 place-items-center rounded-full border bg-card text-muted-foreground hover:border-primary hover:text-foreground"
-          aria-label="Filter"
+          aria-label="Format Pesan WA"
         >
-          <SlidersHorizontal className="h-4 w-4" />
+          <MessageSquareText className="h-4 w-4" />
         </button>
       </div>
 
@@ -115,10 +117,10 @@ function PiutangList() {
           className="flex w-full items-center gap-3 rounded-2xl bg-emerald-600 p-4 text-left text-white shadow-sm transition hover:bg-emerald-700"
         >
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-emerald-500/40">
-            <MessageCircle className="h-6 w-6" />
+            <WhatsAppIcon className="h-6 w-6" />
           </div>
           <div className="flex-1">
-            <div className="text-[15px] font-semibold leading-tight">Kirim Rekap Semua Piutang ke WA</div>
+            <div className="text-[15px] font-semibold leading-tight">Kirim Rekap Piutang</div>
             <div className="mt-1 text-xs opacity-90">
               {list.length} customer &nbsp;·&nbsp; Total Piutang
             </div>
@@ -175,9 +177,12 @@ function PiutangList() {
         </div>
         <button
           type="button"
-          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border bg-card px-4 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
+          onClick={() => setSortHighest((v) => !v)}
+          className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors ${
+            sortHighest ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-card text-muted-foreground hover:border-emerald-600 hover:text-foreground"
+          }`}
         >
-          <SlidersHorizontal className="h-4 w-4" /> Filter
+          <ArrowDownWideNarrow className="h-4 w-4" /> {sortHighest ? "Tertinggi" : "Urutkan"}
         </button>
       </div>
 

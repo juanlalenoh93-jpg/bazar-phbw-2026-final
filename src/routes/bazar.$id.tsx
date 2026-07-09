@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, MessageCircle, Copy, Clock, Wallet, ShoppingBag, Lightbulb, BarChart3, CalendarDays, Package, ClipboardCheck, DollarSign, Banknote, Trash2, FileText, CreditCard } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCog, CheckCircle2, Church, Search, Filter, ClipboardList, Copy, Clock, Wallet, ShoppingBag, Lightbulb, BarChart3, CalendarDays, Package, ClipboardCheck, DollarSign, Banknote, Trash2, FileText, CreditCard } from "lucide-react";
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
   allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo,
@@ -1454,7 +1455,7 @@ function RekapanTab({ bazarId, bazarName, bazarDate }: { bazarId: string; bazarN
   return (
     <div className="space-y-4">
       {isAdmin && <button type="button" onClick={handleSendRekap} className="flex w-full items-center gap-4 rounded-2xl bg-emerald-600 p-5 text-left text-white shadow-lg transition hover:bg-emerald-700 active:scale-[0.98]">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20"><MessageCircle className="h-6 w-6" /></div>
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20"><WhatsAppIcon className="h-6 w-6" /></div>
         <div className="min-w-0 flex-1"><div className="text-base font-semibold">Kirim Rekapan ke WA</div><div className="text-xs text-emerald-100/90">{bazarName} · {bazarDateFmt}</div></div>
       </button>}
       {isAdmin && <Button variant="outline" className="w-full gap-2" onClick={copyMessage}><Copy className="h-4 w-4" /> Salin Teks Rekapan</Button>}
