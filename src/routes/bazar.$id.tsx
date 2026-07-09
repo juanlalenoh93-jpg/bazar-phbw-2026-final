@@ -7,7 +7,7 @@ import {
   allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo, useWorkspaceLogo,
   type MenuItem, type Order, type Sale,
 } from "@/lib/storage";
-import { ORGANIZATION_NAME, useWorkspaceHeader } from "@/lib/branding";
+import { getOrgName, useWorkspaceHeader } from "@/lib/branding";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -69,16 +69,6 @@ function BazarDetail() {
   }, [tab]);
 
   const bazar = db.bazars.find((b) => b.id === id);
-  if (!bazar) {
-    return (
-      <div className="space-y-4">
-        <Link to="/bazar" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-          <ArrowLeft className="h-4 w-4" /> Daftar Bazar
-        </Link>
-        <p className="text-muted-foreground">Bazar tidak ditemukan.</p>
-      </div>
-    );
-  }
 
   const menus = useMemo(
     () => db.menus.filter((m) => m.bazarId === id).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)),
@@ -96,6 +86,17 @@ function BazarDetail() {
     () => db.expenses.filter((e) => e.bazarId === id).sort((a, b) => a.createdAt - b.createdAt),
     [db.expenses, id],
   );
+
+  if (!bazar) {
+    return (
+      <div className="space-y-4">
+        <Link to="/bazar" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+          <ArrowLeft className="h-4 w-4" /> Daftar Bazar
+        </Link>
+        <p className="text-muted-foreground">Bazar tidak ditemukan.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -1140,7 +1141,7 @@ function SaleCard({ sale, bazarName, isAdmin }: { sale: Sale; bazarName: string;
       th,td{padding:6px 4px;border-bottom:1px dashed #ddd}
       .tot{font-weight:700;border-top:2px solid #000}</style></head><body>
       <h2>PHBW 2026 — ${bazarName}</h2>
-      <div class="muted">${ORGANIZATION_NAME}</div><hr/>
+      <div class="muted">${getOrgName()}</div><hr/>
       <div><b>Customer:</b> ${sale.customer}</div>
       <div><b>Jenis Metode Pembayaran:</b> ${sale.method === "cash" ? "Cash" : "Transfer"}</div>
       <div class="muted">${fmtDateTime(sale.createdAt)}</div>

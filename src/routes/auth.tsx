@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Church, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { APP_TITLE, ORGANIZATION_NAME } from "@/lib/branding";
+import { APP_TITLE, useOrgName } from "@/lib/branding";
 import { setAuthUser, userFromGoogleCredential } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undef
 function AuthPage() {
   const buttonRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const orgName = useOrgName();
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
@@ -86,7 +87,7 @@ function AuthPage() {
         </div>
         <h1 className="mt-4 text-xl font-bold">PHBW 2026</h1>
         <p className="mt-1 text-sm font-medium text-foreground">{APP_TITLE}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{ORGANIZATION_NAME}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{orgName}</p>
 
         <div className="mt-5 rounded-xl bg-muted/50 p-3 text-left text-xs text-muted-foreground">
           <div className="flex items-start gap-2">

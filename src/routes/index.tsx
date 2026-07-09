@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDB, setDB, computeSaldo, fmtIDR, useLogo, useRightLogo, useWorkspaceLogo, setLogo, setRightLogo, setWorkspaceLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding, downloadBackup, restoreFromBackup } from "@/lib/storage";
 import { exportAll, useSheetUrl } from "@/lib/sync";
 import { signOut, useAuth, useAdminList, addAdmin, removeAdmin } from "@/lib/auth";
-import { APP_TITLE, WORKSPACE_ORG_LABEL, setMainHeader, setWorkspaceHeader, useMainHeader, useWorkspaceHeader } from "@/lib/branding";
+import { APP_TITLE, WORKSPACE_ORG_LABEL, ORGANIZATION_NAME_DEFAULT, setMainHeader, setWorkspaceHeader, setOrgName, useMainHeader, useWorkspaceHeader, useOrgName } from "@/lib/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -168,8 +168,10 @@ function AppSettings() {
 
   const currentMainHeader = useMainHeader();
   const currentWorkspaceHeader = useWorkspaceHeader();
+  const currentOrgName = useOrgName();
   const [mainHeaderText, setMainHeaderText] = useState(currentMainHeader);
   const [workspaceHeaderText, setWorkspaceHeaderText] = useState(currentWorkspaceHeader);
+  const [orgNameText, setOrgNameText] = useState(currentOrgName);
   const leftLogo = useLogo();
   const rightLogo = useRightLogo();
   const workspaceLogo = useWorkspaceLogo();
@@ -192,8 +194,9 @@ function AppSettings() {
     if (open) {
       setMainHeaderText(currentMainHeader);
       setWorkspaceHeaderText(currentWorkspaceHeader);
+      setOrgNameText(currentOrgName);
     }
-  }, [open, currentMainHeader, currentWorkspaceHeader]);
+  }, [open, currentMainHeader, currentWorkspaceHeader, currentOrgName]);
 
   const openAction = (action: SettingsAction) => {
     setActive(action);
@@ -224,6 +227,7 @@ function AppSettings() {
 
   const saveBrandHeaders = () => {
     setMainHeader(mainHeaderText || APP_TITLE);
+    setOrgName(orgNameText || ORGANIZATION_NAME_DEFAULT);
     setWorkspaceHeader(workspaceHeaderText || WORKSPACE_ORG_LABEL);
     toast.success("Header berhasil disimpan");
     resetAction();
@@ -425,6 +429,11 @@ function AppSettings() {
             <div>
               <Label>Header Utama — Halaman Utama</Label>
               <Input value={mainHeaderText} onChange={(e) => setMainHeaderText(e.target.value)} placeholder={APP_TITLE} />
+            </div>
+            <div>
+              <Label>Sub-Header — Halaman Utama</Label>
+              <Input value={orgNameText} onChange={(e) => setOrgNameText(e.target.value)} placeholder={ORGANIZATION_NAME_DEFAULT} />
+              <p className="mt-1 text-[10px] text-muted-foreground">Teks kecil di bawah "{mainHeaderText || APP_TITLE}" (contoh: nama wilayah/kompelsus).</p>
             </div>
             <div>
               <Label>Header — Detail Bazar</Label>

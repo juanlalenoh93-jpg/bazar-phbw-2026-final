@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SaldoRouteImport } from './routes/saldo'
 import { Route as RiwayatRouteImport } from './routes/riwayat'
 import { Route as KalkulatorRouteImport } from './routes/kalkulator'
+import { Route as DatabaseRouteImport } from './routes/database'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PiutangIndexRouteImport } from './routes/piutang.index'
@@ -33,6 +34,11 @@ const RiwayatRoute = RiwayatRouteImport.update({
 const KalkulatorRoute = KalkulatorRouteImport.update({
   id: '/kalkulator',
   path: '/kalkulator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatabaseRoute = DatabaseRouteImport.update({
+  id: '/database',
+  path: '/database',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -74,6 +80,7 @@ const BazarIdRekapanRoute = BazarIdRekapanRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/database': typeof DatabaseRoute
   '/kalkulator': typeof KalkulatorRoute
   '/riwayat': typeof RiwayatRoute
   '/saldo': typeof SaldoRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/database': typeof DatabaseRoute
   '/kalkulator': typeof KalkulatorRoute
   '/riwayat': typeof RiwayatRoute
   '/saldo': typeof SaldoRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/database': typeof DatabaseRoute
   '/kalkulator': typeof KalkulatorRoute
   '/riwayat': typeof RiwayatRoute
   '/saldo': typeof SaldoRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/database'
     | '/kalkulator'
     | '/riwayat'
     | '/saldo'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/database'
     | '/kalkulator'
     | '/riwayat'
     | '/saldo'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/database'
     | '/kalkulator'
     | '/riwayat'
     | '/saldo'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  DatabaseRoute: typeof DatabaseRoute
   KalkulatorRoute: typeof KalkulatorRoute
   RiwayatRoute: typeof RiwayatRoute
   SaldoRoute: typeof SaldoRoute
@@ -180,6 +193,13 @@ declare module '@tanstack/react-router' {
       path: '/kalkulator'
       fullPath: '/kalkulator'
       preLoaderRoute: typeof KalkulatorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/database': {
+      id: '/database'
+      path: '/database'
+      fullPath: '/database'
+      preLoaderRoute: typeof DatabaseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -248,6 +268,7 @@ const BazarIdRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  DatabaseRoute: DatabaseRoute,
   KalkulatorRoute: KalkulatorRoute,
   RiwayatRoute: RiwayatRoute,
   SaldoRoute: SaldoRoute,
@@ -259,3 +280,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { Church } from "lucide-react";
 import { useLogo, useRightLogo } from "@/lib/storage";
-import { ORGANIZATION_NAME, useMainHeader } from "@/lib/branding";
+import { useMainHeader, useOrgName } from "@/lib/branding";
 
 export function AppHeader() {
   const logo = useLogo();
   const rightLogo = useRightLogo();
   const mainHeader = useMainHeader();
+  const orgName = useOrgName();
 
   return (
     <header className="border-b bg-card">
@@ -18,7 +19,7 @@ export function AppHeader() {
               {mainHeader}
             </h1>
             <p className="text-[10px] font-medium text-muted-foreground sm:text-xs">
-              {ORGANIZATION_NAME}
+              {orgName}
             </p>
           </Link>
           <LogoDisplay title="Logo Kanan" logo={rightLogo} />

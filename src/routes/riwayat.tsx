@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, History, Printer, Share2 } from "lucide-react";
 import { useDB, setDB, fmtIDR, fmtDateTime } from "@/lib/storage";
 import { shareToWhatsApp } from "@/lib/utils";
-import { ORGANIZATION_NAME } from "@/lib/branding";
+import { getOrgName } from "@/lib/branding";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PinConfirmDelete } from "./bazar.index";
@@ -42,7 +42,7 @@ function RiwayatPage() {
       .row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;gap:12px}
       .paid{font-weight:800;font-size:20px;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 0;margin:6px 0}</style></head><body>
       <h2>NOTA PEMBAYARAN PIUTANG</h2>
-      <div class="muted">PHBW 2026 — ${ORGANIZATION_NAME}</div>
+      <div class="muted">PHBW 2026 — ${getOrgName()}</div>
       <hr/>
       <div class="row"><span>Customer</span><b>${p.customer}</b></div>
       <div class="row"><span>Bazar</span><span>${bazarName(p.bazarId)}</span></div>
@@ -64,7 +64,7 @@ function RiwayatPage() {
     const breakdown = paymentBreakdown(p);
     const text =
       `*NOTA PEMBAYARAN PIUTANG*\n` +
-      `${ORGANIZATION_NAME}\n\n` +
+      `${getOrgName()}\n\n` +
       `Customer: *${p.customer}*\n` +
       `Bazar: ${bazarName(p.bazarId)}\n` +
       `Tanggal: ${fmtDateTime(p.date)}\n` +
