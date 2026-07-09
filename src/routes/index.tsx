@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, Camera, X, Users, ChevronRight, LogOut, Download, Upload, Database, ShieldCheck } from "lucide-react";
+import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, Camera, X, Users, ChevronRight, LogOut, Download, Upload, Database, ShieldCheck, KeyRound, Image } from "lucide-react";
 import { SheetSyncSettings } from "@/components/SheetSyncSettings";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useDB, setDB, computeSaldo, fmtIDR, useLogo, useRightLogo, setLogo, setRightLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding, downloadBackup, restoreFromBackup } from "@/lib/storage";
+import { useDB, setDB, computeSaldo, fmtIDR, useLogo, useRightLogo, useWorkspaceLogo, setLogo, setRightLogo, setWorkspaceLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding, downloadBackup, restoreFromBackup } from "@/lib/storage";
 import { exportAll, useSheetUrl } from "@/lib/sync";
 import { signOut, useAuth, useAdminList, addAdmin, removeAdmin } from "@/lib/auth";
 import { APP_TITLE, WORKSPACE_ORG_LABEL, setMainHeader, setWorkspaceHeader, useMainHeader, useWorkspaceHeader } from "@/lib/branding";
@@ -136,10 +136,7 @@ function Dashboard() {
 type SettingsAction =
   | "pin"
   | "modal-awal"
-  | "left-logo"
-  | "right-logo"
-  | "main-header"
-  | "workspace-header"
+  | "brand"
   | "customers"
   | "backup-restore"
   | "admin-list";
@@ -147,10 +144,7 @@ type SettingsAction =
 const settingsLabels: Record<SettingsAction, string> = {
   "pin": "Ganti PIN",
   "modal-awal": "Edit Modal Awal",
-  "left-logo": "Ganti Logo Kiri",
-  "right-logo": "Ganti Logo Kanan",
-  "main-header": "Ubah Header Utama",
-  "workspace-header": "Ubah Header Dalam Bazar",
+  "brand": "Logo & Header",
   "customers": "Kelola Customer Terdaftar",
   "backup-restore": "Backup & Restore Data",
   "admin-list": "Kelola Admin",
@@ -178,8 +172,10 @@ function AppSettings() {
   const [workspaceHeaderText, setWorkspaceHeaderText] = useState(currentWorkspaceHeader);
   const leftLogo = useLogo();
   const rightLogo = useRightLogo();
+  const workspaceLogo = useWorkspaceLogo();
   const leftFileRef = useRef<HTMLInputElement>(null);
   const rightFileRef = useRef<HTMLInputElement>(null);
+  const workspaceFileRef = useRef<HTMLInputElement>(null);
   const restoreFileRef = useRef<HTMLInputElement>(null);
 
   const resetAction = () => {
@@ -226,19 +222,14 @@ function AppSettings() {
     resetAction();
   };
 
-  const saveMainHeader = () => {
+  const saveBrandHeaders = () => {
     setMainHeader(mainHeaderText || APP_TITLE);
-    toast.success("Header utama berhasil disimpan");
-    resetAction();
-  };
-
-  const saveWorkspaceHeader = () => {
     setWorkspaceHeader(workspaceHeaderText || WORKSPACE_ORG_LABEL);
-    toast.success("Header dalam bazar berhasil disimpan");
+    toast.success("Header berhasil disimpan");
     resetAction();
   };
 
-  const handleLogoFile = (side: "left" | "right", file?: File) => {
+  const handleLogoFile = (side: "left" | "right" | "workspace", file?: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("File harus berupa gambar");
     if (file.size > 2_500_000) return toast.error("Maks 2.5MB");
@@ -251,21 +242,24 @@ function AppSettings() {
         setLogo(result);
         if (leftFileRef.current) leftFileRef.current.value = "";
         toast.success("Logo kiri berhasil disimpan");
-      } else {
+      } else if (side === "right") {
         setRightLogo(result);
         if (rightFileRef.current) rightFileRef.current.value = "";
         toast.success("Logo kanan berhasil disimpan");
+      } else {
+        setWorkspaceLogo(result);
+        if (workspaceFileRef.current) workspaceFileRef.current.value = "";
+        toast.success("Logo detail bazar berhasil disimpan");
       }
-      resetAction();
     };
     reader.readAsDataURL(file);
   };
 
-  const clearLogo = (side: "left" | "right") => {
+  const clearLogo = (side: "left" | "right" | "workspace") => {
     if (side === "left") setLogo(null);
-    else setRightLogo(null);
-    toast.success(side === "left" ? "Logo kiri dihapus" : "Logo kanan dihapus");
-    resetAction();
+    else if (side === "right") setRightLogo(null);
+    else setWorkspaceLogo(null);
+    toast.success(side === "left" ? "Logo kiri dihapus" : side === "right" ? "Logo kanan dihapus" : "Logo detail bazar dihapus");
   };
 
   const deleteCustomer = (name: string) => {
@@ -411,49 +405,35 @@ function AppSettings() {
       );
     }
 
-    if (active === "left-logo" || active === "right-logo") {
-      const side = active === "left-logo" ? "left" : "right";
-      const logo = side === "left" ? leftLogo : rightLogo;
-      const ref = side === "left" ? leftFileRef : rightFileRef;
+    if (active === "brand") {
       return (
-        <div className="space-y-3 rounded-xl border p-4">
-          <LogoSettingCard
-            title={settingsLabels[active]}
-            logo={logo}
-            onPick={() => ref.current?.click()}
-            onClear={() => clearLogo(side)}
-          />
-          <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoFile(side, e.target.files?.[0])} />
-          <DialogFooter><Button type="button" variant="outline" onClick={resetAction}>Batal</Button></DialogFooter>
-        </div>
-      );
-    }
-
-    if (active === "main-header") {
-      return (
-        <div className="space-y-3 rounded-xl border p-4">
+        <div className="space-y-5 rounded-xl border p-4">
           <div>
-            <Label>Header Utama</Label>
-            <Input value={mainHeaderText} onChange={(e) => setMainHeaderText(e.target.value)} placeholder={APP_TITLE} />
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Logo</p>
+            <div className="space-y-2">
+              <LogoSettingCard title="Logo Kiri — Halaman Utama" logo={leftLogo} onPick={() => leftFileRef.current?.click()} onClear={() => clearLogo("left")} />
+              <LogoSettingCard title="Logo Kanan — Halaman Utama" logo={rightLogo} onPick={() => rightFileRef.current?.click()} onClear={() => clearLogo("right")} />
+              <LogoSettingCard title="Logo — Detail Bazar" logo={workspaceLogo} onPick={() => workspaceFileRef.current?.click()} onClear={() => clearLogo("workspace")} />
+            </div>
+            <input ref={leftFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoFile("left", e.target.files?.[0])} />
+            <input ref={rightFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoFile("right", e.target.files?.[0])} />
+            <input ref={workspaceFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoFile("workspace", e.target.files?.[0])} />
+            {!workspaceLogo && <p className="mt-1.5 text-[10px] text-muted-foreground">Belum diatur — detail bazar akan memakai Logo Kiri di atas.</p>}
+          </div>
+          <div className="space-y-3 border-t pt-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Header / Teks</p>
+            <div>
+              <Label>Header Utama — Halaman Utama</Label>
+              <Input value={mainHeaderText} onChange={(e) => setMainHeaderText(e.target.value)} placeholder={APP_TITLE} />
+            </div>
+            <div>
+              <Label>Header — Detail Bazar</Label>
+              <Input value={workspaceHeaderText} onChange={(e) => setWorkspaceHeaderText(e.target.value)} placeholder={WORKSPACE_ORG_LABEL} />
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={resetAction}>Batal</Button>
-            <Button type="button" onClick={saveMainHeader}>Simpan</Button>
-          </DialogFooter>
-        </div>
-      );
-    }
-
-    if (active === "workspace-header") {
-      return (
-        <div className="space-y-3 rounded-xl border p-4">
-          <div>
-            <Label>Header Dalam Bazar</Label>
-            <Input value={workspaceHeaderText} onChange={(e) => setWorkspaceHeaderText(e.target.value)} placeholder={WORKSPACE_ORG_LABEL} />
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={resetAction}>Batal</Button>
-            <Button type="button" onClick={saveWorkspaceHeader}>Simpan</Button>
+            <Button type="button" variant="outline" onClick={resetAction}>Tutup</Button>
+            <Button type="button" onClick={saveBrandHeaders}>Simpan Header</Button>
           </DialogFooter>
         </div>
       );
@@ -547,18 +527,21 @@ function AppSettings() {
   };
 
   const menuItems: { action: SettingsAction; icon?: ReactNode; adminOnly?: boolean }[] = [
-    { action: "pin", adminOnly: true },
-    { action: "modal-awal", adminOnly: true },
-    { action: "left-logo", adminOnly: true },
-    { action: "right-logo", adminOnly: true },
-    { action: "main-header", adminOnly: true },
-    { action: "workspace-header", adminOnly: true },
+    { action: "pin", icon: <KeyRound className="h-4 w-4" />, adminOnly: true },
+    { action: "modal-awal", icon: <Wallet className="h-4 w-4" />, adminOnly: true },
+    { action: "brand", icon: <Image className="h-4 w-4" />, adminOnly: true },
     { action: "customers", icon: <Users className="h-4 w-4" />, adminOnly: true },
     { action: "backup-restore", icon: <Database className="h-4 w-4" />, adminOnly: true },
     { action: "admin-list", icon: <ShieldCheck className="h-4 w-4" />, adminOnly: true },
   ];
 
-  const visibleMenuItems = menuItems.filter((m) => !m.adminOnly || isAdmin);
+  const settingsGroups: { title: string; actions: SettingsAction[] }[] = [
+    { title: "Akun & Keamanan", actions: ["pin", "admin-list"] },
+    { title: "Tampilan Aplikasi", actions: ["brand"] },
+    { title: "Data Bazar", actions: ["modal-awal", "customers", "backup-restore"] },
+  ];
+
+
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) resetAction(); }}>
@@ -569,18 +552,29 @@ function AppSettings() {
         <DialogHeader><DialogTitle>Pengaturan Aplikasi</DialogTitle></DialogHeader>
         <div className="space-y-3">
           {!active ? (
-            <div className="space-y-2">
-              {visibleMenuItems.map(({ action, icon }) => (
-                <button
-                  key={action}
-                  type="button"
-                  onClick={() => openAction(action)}
-                  className="flex w-full items-center justify-between rounded-xl border bg-card px-4 py-3 text-left text-sm font-medium transition hover:bg-muted/50"
-                >
-                  <span className="flex items-center gap-2">{icon}{settingsLabels[action]}</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-              ))}
+            <div className="space-y-4">
+              {settingsGroups.map((group) => {
+                const items = group.actions
+                  .map((action) => menuItems.find((m) => m.action === action)!)
+                  .filter((m) => !m.adminOnly || isAdmin);
+                if (items.length === 0) return null;
+                return (
+                  <div key={group.title} className="space-y-2">
+                    <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{group.title}</p>
+                    {items.map(({ action, icon }) => (
+                      <button
+                        key={action}
+                        type="button"
+                        onClick={() => openAction(action)}
+                        className="flex w-full items-center justify-between rounded-xl border bg-card px-4 py-3 text-left text-sm font-medium transition hover:bg-muted/50"
+                      >
+                        <span className="flex items-center gap-2">{icon}{settingsLabels[action]}</span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
               <button
                 type="button"
                 onClick={logout}

@@ -222,6 +222,45 @@ export function useRightLogo(): string | null {
   );
 }
 
+// ------- Workspace logo (logo di halaman detail bazar) -------
+const WORKSPACE_LOGO_KEY = "phbw-2026-workspace-logo-v1";
+let workspaceLogo: string | null = null;
+let workspaceLogoLoaded = false;
+const workspaceLogoListeners = new Set<() => void>();
+
+function loadWorkspaceLogo(): string | null {
+  if (typeof window === "undefined") return null;
+  if (workspaceLogoLoaded) return workspaceLogo;
+  try {
+    workspaceLogo = localStorage.getItem(WORKSPACE_LOGO_KEY);
+  } catch {
+    workspaceLogo = null;
+  }
+  workspaceLogoLoaded = true;
+  return workspaceLogo;
+}
+
+export function setWorkspaceLogo(value: string | null) {
+  workspaceLogo = value;
+  workspaceLogoLoaded = true;
+  if (typeof window !== "undefined") {
+    if (value) localStorage.setItem(WORKSPACE_LOGO_KEY, value);
+    else localStorage.removeItem(WORKSPACE_LOGO_KEY);
+  }
+  workspaceLogoListeners.forEach((l) => l());
+}
+
+export function useWorkspaceLogo(): string | null {
+  return useSyncExternalStore(
+    (cb) => {
+      workspaceLogoListeners.add(cb);
+      return () => workspaceLogoListeners.delete(cb);
+    },
+    () => loadWorkspaceLogo(),
+    () => null,
+  );
+}
+
 let dbSnapshot: DB = initialDB;
 
 export function useDB(): DB {

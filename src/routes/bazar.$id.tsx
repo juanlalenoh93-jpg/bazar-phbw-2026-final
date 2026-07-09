@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Pencil, ShoppingCart, Receipt, Printer, Upload, UserCo
 import { WhatsAppIcon } from "@/components/WhatsAppIcon";
 import {
   useDB, setDB, uid, fmtIDR, fmtDate, fmtDateTime, saleOutstanding,
-  allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo,
+  allCustomersGlobal, addCustomerToMaster, menuStats, bazarMenuSummary, useLogo, useWorkspaceLogo,
   type MenuItem, type Order, type Sale,
 } from "@/lib/storage";
 import { ORGANIZATION_NAME, useWorkspaceHeader } from "@/lib/branding";
@@ -35,7 +35,9 @@ type TabKey = (typeof TAB_LIST)[number];
 function BazarDetail() {
   const { id } = Route.useParams();
   const db = useDB();
-  const logo = useLogo();
+  const leftLogo = useLogo();
+  const workspaceLogoOverride = useWorkspaceLogo();
+  const logo = workspaceLogoOverride ?? leftLogo;
   const workspaceHeader = useWorkspaceHeader();
   const { isAdmin } = useAuth();
   const [tab, setTab] = useState<TabKey>("menu");
