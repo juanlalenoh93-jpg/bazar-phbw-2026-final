@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { fetchRemoteState, scheduleRemotePush, pushRemoteStateNow, type SyncedState } from "./supabase-sync";
+import { getAdminList, setAdminListFromRemote } from "./auth";
+import { getPin, setPinFromRemote } from "./pin";
 
 // =============== Types ===============
 export type Bazar = {
@@ -679,7 +681,15 @@ function buildSyncSnapshot(): SyncedState {
     workspaceLogo,
     customers: customerMaster || [],
     customersDeleted: deletedCustomerMaster || [],
+    adminList: getAdminList(),
+    pin: getPin(),
   };
+}
+
+// Panggil ini setelah mengubah daftar admin atau PIN (di luar db utama),
+// supaya perubahan itu ikut dikirim ke Supabase dan berlaku di semua device.
+export function triggerRemoteSync() {
+  syncToRemote();
 }
 
 function syncToRemote() {
@@ -709,6 +719,17 @@ function applyRemoteState(remote: SyncedState) {
   localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customerMaster));
   deletedCustomerMaster = remote.customersDeleted || [];
   localStorage.setItem(CUSTOMER_DELETED_KEY, JSON.stringify(deletedCustomerMaster));
+
+  // adminList & pin: hanya diterapkan kalau memang dikirim dari server.
+  // Ini menjaga kompatibilitas dengan data lama (sebelum kedua field ini
+  // ada) supaya tidak tiba-tiba mengosongkan daftar admin/PIN yang sudah
+  // pernah diatur di device ini.
+  if (Array.isArray(remote.adminList)) {
+    setAdminListFromRemote(remote.adminList);
+  }
+  if (remote.pin) {
+    setPinFromRemote(remote.pin);
+  }
 
   dbSnapshot = db;
   listeners.forEach((l) => l());

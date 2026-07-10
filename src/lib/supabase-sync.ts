@@ -28,6 +28,8 @@ export type SyncedState = {
   workspaceLogo: string | null;
   customers: string[];
   customersDeleted: string[];
+  adminList?: string[];
+  pin?: string;
 };
 
 const TABLE = "app_state";

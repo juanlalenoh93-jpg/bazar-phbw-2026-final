@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Store, Wallet, History, Calculator, Eye, EyeOff, Settings, RefreshCw, Camera, X, Users, ChevronRight, LogOut, Download, Upload, Database, ShieldCheck, KeyRound, Image } from "lucide-react";
 import { SheetSyncSettings } from "@/components/SheetSyncSettings";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useDB, setDB, computeSaldo, fmtIDR, useLogo, useRightLogo, useWorkspaceLogo, setLogo, setRightLogo, setWorkspaceLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding, downloadBackup, restoreFromBackup } from "@/lib/storage";
+import { useDB, setDB, computeSaldo, fmtIDR, useLogo, useRightLogo, useWorkspaceLogo, setLogo, setRightLogo, setWorkspaceLogo, allCustomersGlobal, removeCustomerFromMaster, saleOutstanding, downloadBackup, restoreFromBackup, triggerRemoteSync } from "@/lib/storage";
 import { exportAll, useSheetUrl } from "@/lib/sync";
 import { signOut, useAuth, useAdminList, addAdmin, removeAdmin } from "@/lib/auth";
 import { APP_TITLE, WORKSPACE_ORG_LABEL, ORGANIZATION_NAME_DEFAULT, setMainHeader, setWorkspaceHeader, setOrgName, useMainHeader, useWorkspaceHeader, useOrgName } from "@/lib/branding";
@@ -221,6 +221,7 @@ function AppSettings() {
     if (next.length < 4) return toast.error("PIN baru minimal 4 karakter");
     if (next !== confirm) return toast.error("Konfirmasi PIN tidak cocok");
     setPin(next);
+    triggerRemoteSync();
     toast.success("PIN berhasil diubah");
     resetAction();
   };
@@ -281,12 +282,14 @@ function AppSettings() {
     const email = newAdminEmail.trim().toLowerCase();
     if (!email || !email.includes("@")) return toast.error("Masukkan alamat email yang valid");
     addAdmin(email);
+    triggerRemoteSync();
     toast.success(`${email} ditambahkan sebagai Admin`);
     setNewAdminEmail("");
   };
 
   const handleRemoveAdmin = (email: string) => {
     removeAdmin(email);
+    triggerRemoteSync();
     toast.success(`${email} dihapus dari daftar Admin`);
   };
 

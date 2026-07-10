@@ -106,6 +106,17 @@ export function removeAdmin(email: string) {
   saveAdminList();
 }
 
+// Dipakai oleh lapisan sinkronisasi (supabase-sync) untuk menerapkan daftar
+// admin dari server ke device ini, tanpa memicu sinkronisasi balik (silent).
+export function setAdminListFromRemote(list: string[]) {
+  adminList = Array.isArray(list) ? list.map((e) => e.toLowerCase().trim()) : [];
+  if (typeof window !== "undefined") {
+    localStorage.setItem(ADMIN_LIST_KEY, JSON.stringify(adminList));
+  }
+  adminListeners.forEach((l) => l());
+  listeners.forEach((l) => l());
+}
+
 export function useAdminList(): string[] {
   return useSyncExternalStore(
     (cb) => {

@@ -15,3 +15,12 @@ export function setPin(pin: string) {
 export function verifyPin(input: string): boolean {
   return input.trim() === getPin();
 }
+
+// Dipakai oleh lapisan sinkronisasi (supabase-sync) untuk menerapkan PIN
+// dari server ke device ini.
+export function setPinFromRemote(pin: string | null | undefined) {
+  if (typeof window === "undefined") return;
+  if (pin && pin.trim()) {
+    localStorage.setItem(PIN_KEY, pin.trim());
+  }
+}
